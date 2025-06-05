@@ -457,7 +457,7 @@ const Sales: React.FC = () => {
               
               <div className="border-t border-gray-200 pt-2 mb-2">
                 <p>Transaction: #{lastTransaction.transactionNumber}</p>
-                <p>Date: {format(lastTransaction.createdAt, 'MMM dd, yyyy HH:mm')}</p>
+                <p>Date: {format(lastTransaction.createdAt, 'MMM dd, yyyy hh:mm a')}</p>
                 <p>Cashier: {lastTransaction.cashier?.firstName} {lastTransaction.cashier?.lastName}</p>
               </div>
 

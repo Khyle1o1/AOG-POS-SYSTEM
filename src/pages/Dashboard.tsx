@@ -191,7 +191,7 @@ const Dashboard: React.FC = () => {
                   <div>
                     <p className="font-medium text-gray-900">#{transaction.transactionNumber}</p>
                     <p className="text-sm text-gray-500">
-                      {format(transaction.createdAt, 'MMM dd, HH:mm')}
+                      {format(transaction.createdAt, 'MMM dd, hh:mm a')}
                     </p>
                   </div>
                   <div className="text-right">
@@ -314,7 +314,7 @@ const Dashboard: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-500">Date & Time</p>
                       <p className="font-medium">
-                        {format(selectedTransaction.createdAt, 'MMM dd, yyyy HH:mm:ss')}
+                        {format(selectedTransaction.createdAt, 'MMM dd, yyyy hh:mm:ss a')}
                       </p>
                     </div>
                   </div>

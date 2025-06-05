@@ -8,12 +8,8 @@ interface ReportData {
   dateRange: { start: Date; end: Date };
   totalSales: number;
   totalTransactions: number;
-  averageTransaction: number;
-  netSales: number;
-  totalRefunds: number;
-  topProducts: any[];
-  paymentMethods: Record<string, number>;
-  hourlySales: Record<number, number>;
+  totalInventoryCost: number;
+  totalProfit: number;
 }
 
 export const generatePDFReport = (data: ReportData) => {
@@ -27,7 +23,6 @@ export const generatePDFReport = (data: ReportData) => {
   // Colors
   const primaryColor: [number, number, number] = [59, 130, 246]; // Blue
   const secondaryColor: [number, number, number] = [107, 114, 128]; // Gray
-  // const accentColor: [number, number, number] = [16, 185, 129]; // Green
   
   let yPosition = 20;
 
@@ -47,7 +42,7 @@ export const generatePDFReport = (data: ReportData) => {
   
   // Generated date
   doc.setFontSize(8);
-  doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, pageWidth - 60, 28);
+  doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy hh:mm a')}`, pageWidth - 60, 28);
   
   yPosition = 45;
 
@@ -62,9 +57,8 @@ export const generatePDFReport = (data: ReportData) => {
   const summaryData = [
     ['Total Sales', `PHP ${data.totalSales.toFixed(2)}`],
     ['Total Transactions', data.totalTransactions.toString()],
-    ['Average Transaction', `PHP ${data.averageTransaction.toFixed(2)}`],
-    ['Total Refunds', `PHP ${data.totalRefunds.toFixed(2)}`],
-    ['Net Sales', `PHP ${data.netSales.toFixed(2)}`]
+    ['Total Inventory Cost', `PHP ${data.totalInventoryCost.toFixed(2)}`],
+    ['Total Profit', `PHP ${data.totalProfit.toFixed(2)}`]
   ];
 
   autoTable(doc, {
@@ -81,188 +75,25 @@ export const generatePDFReport = (data: ReportData) => {
     },
     bodyStyles: { 
       fontSize: 9,
-      cellPadding: 4
+      cellPadding: 4,
+      halign: 'center'
     },
     columnStyles: { 
-      0: { cellWidth: contentWidth * 0.65, halign: 'left', fontStyle: 'normal' }, 
-      1: { cellWidth: contentWidth * 0.35, halign: 'right', fontStyle: 'bold' } 
+      0: { cellWidth: contentWidth * 0.65, halign: 'center', fontStyle: 'normal' }, 
+      1: { cellWidth: contentWidth * 0.35, halign: 'center', fontStyle: 'bold' } 
     },
     margin: { left: margin, right: margin },
     tableWidth: contentWidth,
     styles: {
       cellPadding: 4,
-      valign: 'middle'
+      valign: 'middle',
+      halign: 'center'
     }
   });
 
   yPosition = (doc as any).lastAutoTable.finalY + 15;
 
-  // Top Products Section
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Top Performing Products', margin, yPosition);
-  yPosition += 8;
-
-  if (data.topProducts.length > 0) {
-    const productData = data.topProducts.slice(0, 8).map((product, index) => [
-      (index + 1).toString(),
-      product.productName.length > 30 ? product.productName.substring(0, 30) + '...' : product.productName,
-      product.quantitySold.toString(),
-      `PHP ${product.revenue.toFixed(0)}`,
-      `PHP ${product.profit.toFixed(0)}`
-    ]);
-
-    autoTable(doc, {
-      startY: yPosition,
-      head: [['#', 'Product Name', 'Qty', 'Revenue', 'Profit']],
-      body: productData,
-      theme: 'striped',
-      headStyles: { 
-        fillColor: primaryColor, 
-        textColor: 255, 
-        fontSize: 9, 
-        halign: 'center',
-        fontStyle: 'bold'
-      },
-      bodyStyles: { 
-        fontSize: 8,
-        cellPadding: 3
-      },
-      columnStyles: { 
-        0: { cellWidth: contentWidth * 0.08, halign: 'center', fontStyle: 'bold' },
-        1: { cellWidth: contentWidth * 0.50, halign: 'left', fontStyle: 'normal' },
-        2: { cellWidth: contentWidth * 0.10, halign: 'center', fontStyle: 'normal' },
-        3: { cellWidth: contentWidth * 0.16, halign: 'right', fontStyle: 'bold' },
-        4: { cellWidth: contentWidth * 0.16, halign: 'right', fontStyle: 'bold' }
-      },
-      margin: { left: margin, right: margin },
-      tableWidth: contentWidth,
-      styles: {
-        cellPadding: 3,
-        valign: 'middle'
-      }
-    });
-
-    yPosition = (doc as any).lastAutoTable.finalY + 15;
-  } else {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-    doc.text('No product sales data available for this period.', margin, yPosition);
-    yPosition += 15;
-  }
-
-  // Check if we need a new page
-  if (yPosition > pageHeight - 80) {
-    doc.addPage();
-    yPosition = 20;
-  }
-
-  // Payment Methods Section
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Payment Methods', margin, yPosition);
-  yPosition += 8;
-
-  if (Object.keys(data.paymentMethods).length > 0) {
-    const paymentData = Object.entries(data.paymentMethods).map(([method, amount]) => {
-      const percentage = data.totalSales > 0 ? (amount / data.totalSales) * 100 : 0;
-      return [
-        method.charAt(0).toUpperCase() + method.slice(1),
-        `PHP ${amount.toFixed(2)}`,
-        `${percentage.toFixed(1)}%`
-      ];
-    });
-
-    autoTable(doc, {
-      startY: yPosition,
-      head: [['Payment Method', 'Amount', 'Percentage']],
-      body: paymentData,
-      theme: 'striped',
-      headStyles: { 
-        fillColor: primaryColor, 
-        textColor: 255, 
-        fontSize: 9, 
-        halign: 'center',
-        fontStyle: 'bold'
-      },
-      bodyStyles: { 
-        fontSize: 8,
-        cellPadding: 3
-      },
-      columnStyles: { 
-        0: { cellWidth: contentWidth * 0.45, halign: 'left', fontStyle: 'normal' },
-        1: { cellWidth: contentWidth * 0.30, halign: 'right', fontStyle: 'bold' },
-        2: { cellWidth: contentWidth * 0.25, halign: 'center', fontStyle: 'bold' }
-      },
-      margin: { left: margin, right: margin },
-      tableWidth: contentWidth,
-      styles: {
-        cellPadding: 3,
-        valign: 'middle'
-      }
-    });
-
-    yPosition = (doc as any).lastAutoTable.finalY + 15;
-  }
-
-  // Hourly Sales Analysis (compact version)
-  if (yPosition > pageHeight - 60) {
-    doc.addPage();
-    yPosition = 20;
-  }
-
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Peak Hours Sales', margin, yPosition);
-  yPosition += 8;
-
-  if (Object.keys(data.hourlySales).length > 0) {
-    // Show only top 6 hours with sales
-    const hourlyData = Object.entries(data.hourlySales)
-      .filter(([_, amount]) => amount > 0)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 6)
-      .map(([hour, amount]) => [
-        `${hour.padStart(2, '0')}:00`,
-        `PHP ${amount.toFixed(2)}`
-      ]);
-
-    if (hourlyData.length > 0) {
-      autoTable(doc, {
-        startY: yPosition,
-        head: [['Hour', 'Sales Amount']],
-        body: hourlyData,
-        theme: 'grid',
-        headStyles: { 
-          fillColor: primaryColor, 
-          textColor: 255, 
-          fontSize: 9,
-          halign: 'center',
-          fontStyle: 'bold'
-        },
-        bodyStyles: { 
-          fontSize: 8,
-          cellPadding: 3
-        },
-        columnStyles: { 
-          0: { cellWidth: contentWidth * 0.25, halign: 'center', fontStyle: 'normal' },
-          1: { cellWidth: contentWidth * 0.35, halign: 'right', fontStyle: 'bold' }
-        },
-        margin: { left: margin, right: margin },
-        tableWidth: contentWidth * 0.6,
-        styles: {
-          cellPadding: 3,
-          valign: 'middle'
-        }
-      });
-
-      yPosition = (doc as any).lastAutoTable.finalY + 15;
-    }
-  }
-
-  // Recent Transactions Section (compact)
+  // Recent Transactions Section
   if (yPosition > pageHeight - 60) {
     doc.addPage();
     yPosition = 20;
@@ -274,9 +105,9 @@ export const generatePDFReport = (data: ReportData) => {
   yPosition += 8;
 
   if (data.transactions.length > 0) {
-    const transactionData = data.transactions.slice(0, 12).map(transaction => [
+    const transactionData = data.transactions.slice(0, 15).map(transaction => [
       `#${transaction.transactionNumber.slice(-4)}`, // Show only last 4 digits
-      format(transaction.createdAt, 'MM/dd HH:mm'),
+      format(transaction.createdAt, 'MM/dd hh:mm a'),
       transaction.items.length.toString(),
       transaction.paymentMethod.charAt(0).toUpperCase(),
       `PHP ${transaction.total.toFixed(0)}`,
@@ -288,18 +119,29 @@ export const generatePDFReport = (data: ReportData) => {
       head: [['ID', 'Date/Time', 'Items', 'Pay', 'Total', 'By']],
       body: transactionData,
       theme: 'striped',
-      headStyles: { fillColor: primaryColor, textColor: 255, fontSize: 8 },
-      bodyStyles: { fontSize: 7 },
+      headStyles: { 
+        fillColor: primaryColor, 
+        textColor: 255, 
+        fontSize: 8,
+        halign: 'center'
+      },
+      bodyStyles: { 
+        fontSize: 7,
+        halign: 'center'
+      },
       columnStyles: { 
-        0: { cellWidth: contentWidth * 0.15 },
-        1: { cellWidth: contentWidth * 0.2 },
+        0: { cellWidth: contentWidth * 0.15, halign: 'center' },
+        1: { cellWidth: contentWidth * 0.2, halign: 'center' },
         2: { cellWidth: contentWidth * 0.1, halign: 'center' },
         3: { cellWidth: contentWidth * 0.1, halign: 'center' },
-        4: { cellWidth: contentWidth * 0.15, halign: 'right' },
+        4: { cellWidth: contentWidth * 0.15, halign: 'center' },
         5: { cellWidth: contentWidth * 0.1, halign: 'center' }
       },
       margin: { left: margin, right: margin },
-      tableWidth: contentWidth * 0.8
+      tableWidth: contentWidth * 0.8,
+      styles: {
+        halign: 'center'
+      }
     });
   }
 
@@ -371,7 +213,7 @@ export const generateDetailedTransactionReport = (transactions: Transaction[], d
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      doc.text(`${format(transaction.createdAt, 'MMM dd, yyyy HH:mm')}`, margin, yPosition + 8);
+      doc.text(`${format(transaction.createdAt, 'MMM dd, yyyy hh:mm a')}`, margin, yPosition + 8);
       doc.text(`${transaction.cashier?.firstName || ''} ${transaction.cashier?.lastName || ''}`, margin + 50, yPosition + 8);
       doc.text(`${transaction.paymentMethod}`, margin + 100, yPosition + 8);
       doc.text(`PHP ${transaction.total.toFixed(2)}`, margin + 130, yPosition + 8);
@@ -392,16 +234,27 @@ export const generateDetailedTransactionReport = (transactions: Transaction[], d
           head: [['Product', 'Qty', 'Price', 'Total']],
           body: itemData,
           theme: 'grid',
-          headStyles: { fillColor: [59, 130, 246] as [number, number, number], textColor: 255, fontSize: 8 },
-          bodyStyles: { fontSize: 7 },
+          headStyles: { 
+            fillColor: [59, 130, 246] as [number, number, number], 
+            textColor: 255, 
+            fontSize: 8,
+            halign: 'center'
+          },
+          bodyStyles: { 
+            fontSize: 7,
+            halign: 'center'
+          },
           columnStyles: { 
-            0: { cellWidth: contentWidth * 0.5 },
+            0: { cellWidth: contentWidth * 0.5, halign: 'center' },
             1: { cellWidth: contentWidth * 0.15, halign: 'center' },
-            2: { cellWidth: contentWidth * 0.175, halign: 'right' },
-            3: { cellWidth: contentWidth * 0.175, halign: 'right' }
+            2: { cellWidth: contentWidth * 0.175, halign: 'center' },
+            3: { cellWidth: contentWidth * 0.175, halign: 'center' }
           },
           margin: { left: margin, right: margin },
-          tableWidth: contentWidth
+          tableWidth: contentWidth,
+          styles: {
+            halign: 'center'
+          }
         });
 
         yPosition = (doc as any).lastAutoTable.finalY + 8;
