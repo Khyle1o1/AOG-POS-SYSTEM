@@ -13,6 +13,33 @@ import { initializeDatabase, MigrationService } from './database';
 import { createAdmin123User } from './utils/createAdminUser';
 import { RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
 
+// Component for role-based route protection
+const ProtectedRoute: React.FC<{ 
+  children: React.ReactNode; 
+  allowedRoles: string[];
+  fallbackPath?: string;
+}> = ({ children, allowedRoles, fallbackPath = '/sales' }) => {
+  const { auth } = useStore();
+  
+  if (!auth.user?.role || !allowedRoles.includes(auth.user.role)) {
+    return <Navigate to={fallbackPath} replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// Component to handle default route based on user role
+const DefaultRoute: React.FC = () => {
+  const { auth } = useStore();
+  
+  // Redirect based on user role
+  if (auth.user?.role === 'cashier') {
+    return <Navigate to="/sales" replace />;
+  } else {
+    return <Navigate to="/dashboard" replace />;
+  }
+};
+
 const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
@@ -207,14 +234,14 @@ const App: React.FC = () => {
       ) : (
         <Layout>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/sales" element={<Sales />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/users" element={<UserManagement />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<DefaultRoute />} />
+            <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/sales" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'cashier']}><Sales /></ProtectedRoute>} />
+            <Route path="/inventory" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Inventory /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute allowedRoles={['admin', 'manager', 'cashier']}><Reports /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute allowedRoles={['admin']}><UserManagement /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><Settings /></ProtectedRoute>} />
+            <Route path="*" element={<DefaultRoute />} />
           </Routes>
         </Layout>
       )}

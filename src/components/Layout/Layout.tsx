@@ -24,14 +24,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { auth, logout } = useStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Sales', href: '/sales', icon: ShoppingCart },
-    { name: 'Inventory', href: '/inventory', icon: Package },
-    { name: 'Reports', href: '/reports', icon: BarChart3 },
-    { name: 'Users', href: '/users', icon: Users },
-    { name: 'Settings', href: '/settings', icon: SettingsIcon },
+  // Define all navigation items with role requirements
+  const allNavigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'manager'] },
+    { name: 'Sales', href: '/sales', icon: ShoppingCart, roles: ['admin', 'manager', 'cashier'] },
+    { name: 'Inventory', href: '/inventory', icon: Package, roles: ['admin', 'manager'] },
+    { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['admin', 'manager', 'cashier'] },
+    { name: 'Users', href: '/users', icon: Users, roles: ['admin'] },
+    { name: 'Settings', href: '/settings', icon: SettingsIcon, roles: ['admin', 'manager'] },
   ];
+
+  // Filter navigation based on user role
+  const navigation = allNavigation.filter(item => 
+    auth.user?.role && item.roles.includes(auth.user.role)
+  );
 
   const handleLogout = () => {
     logout();
