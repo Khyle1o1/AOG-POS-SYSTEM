@@ -8,7 +8,6 @@ import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
 import Settings from './pages/Settings';
-import DatabaseManagement from './pages/DatabaseManagement';
 import { useStore } from './store/useStore';
 import { initializeDatabase, MigrationService } from './database';
 import { createAdmin123User } from './utils/createAdminUser';
@@ -215,7 +214,6 @@ const App: React.FC = () => {
             <Route path="/reports" element={<Reports />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/database" element={<DatabaseManagement />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Layout>

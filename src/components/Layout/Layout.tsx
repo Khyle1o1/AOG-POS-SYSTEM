@@ -7,7 +7,6 @@ import {
   BarChart3, 
   Users, 
   Settings as SettingsIcon,
-  Database,
   LogOut,
   User,
   Menu,
@@ -32,8 +31,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Settings', href: '/settings', icon: SettingsIcon },
-    // Only show database management for admin users
-    ...(auth.user?.role === 'admin' ? [{ name: 'Database', href: '/database', icon: Database }] : []),
   ];
 
   const handleLogout = () => {
