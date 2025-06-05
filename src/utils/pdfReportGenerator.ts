@@ -102,7 +102,7 @@ export const generatePDFReport = (data: ReportData) => {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('Recent Transactions', margin, yPosition);
-  yPosition += 8;
+  yPosition += 10;
 
   if (data.transactions.length > 0) {
     const transactionData = data.transactions.slice(0, 15).map(transaction => [
@@ -122,25 +122,36 @@ export const generatePDFReport = (data: ReportData) => {
       headStyles: { 
         fillColor: primaryColor, 
         textColor: 255, 
-        fontSize: 8,
-        halign: 'center'
+        fontSize: 10,
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 6
       },
       bodyStyles: { 
-        fontSize: 7,
-        halign: 'center'
+        fontSize: 9,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 5
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245] // Light gray for alternating rows
       },
       columnStyles: { 
         0: { cellWidth: contentWidth * 0.15, halign: 'center' },
-        1: { cellWidth: contentWidth * 0.2, halign: 'center' },
-        2: { cellWidth: contentWidth * 0.1, halign: 'center' },
-        3: { cellWidth: contentWidth * 0.1, halign: 'center' },
-        4: { cellWidth: contentWidth * 0.15, halign: 'center' },
-        5: { cellWidth: contentWidth * 0.1, halign: 'center' }
+        1: { cellWidth: contentWidth * 0.25, halign: 'center' },
+        2: { cellWidth: contentWidth * 0.12, halign: 'center' },
+        3: { cellWidth: contentWidth * 0.12, halign: 'center' },
+        4: { cellWidth: contentWidth * 0.18, halign: 'center' },
+        5: { cellWidth: contentWidth * 0.18, halign: 'center' }
       },
       margin: { left: margin, right: margin },
-      tableWidth: contentWidth * 0.8,
+      tableWidth: contentWidth,
       styles: {
-        halign: 'center'
+        halign: 'center',
+        valign: 'middle',
+        lineColor: [229, 229, 229],
+        lineWidth: 0.5
       }
     });
   }
