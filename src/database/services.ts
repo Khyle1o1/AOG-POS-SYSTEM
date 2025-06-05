@@ -309,7 +309,6 @@ export class SettingsService {
     if (!settings) {
       const defaultSettings: DatabaseSettings = {
         id: 'default',
-        taxRate: 10,
         currency: 'PHP',
         storeName: 'My Store',
         autoBackup: false,

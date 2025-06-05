@@ -340,10 +340,6 @@ const Sales: React.FC = () => {
                 <span>Subtotal:</span>
                 <span>{formatCurrency(cart.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Tax ({settings.taxRate}%):</span>
-                <span>{formatCurrency(cart.tax)}</span>
-              </div>
               {cart.discount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount:</span>
@@ -474,10 +470,6 @@ const Sales: React.FC = () => {
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
                   <span>{formatCurrency(lastTransaction.subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax:</span>
-                  <span>{formatCurrency(lastTransaction.tax)}</span>
                 </div>
                 <div className="flex justify-between font-bold">
                   <span>Total:</span>

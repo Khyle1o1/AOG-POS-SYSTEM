@@ -10,7 +10,6 @@ A comprehensive Point of Sale (POS) system built with React, TypeScript, and mod
 - **Multiple payment methods**: Support for cash, card, and digital payments
 - **Receipt generation**: Automatic receipt creation with store branding
 - **Refund and void transactions**: Complete transaction reversal capabilities
-- **Tax calculation**: Automatic tax computation based on configurable rates
 
 ### 2. Inventory Management
 - **Real-time stock tracking**: Live inventory updates after each sale
@@ -34,7 +33,7 @@ A comprehensive Point of Sale (POS) system built with React, TypeScript, and mod
 - **Exportable reports**: PDF and Excel export functionality
 - **User activity logging**: Complete audit trails for compliance
 - **Sales analytics**: Top products, payment method breakdown, hourly sales
-- **Financial reporting**: Revenue, profit, and tax reporting
+- **Financial reporting**: Revenue and profit reporting
 - **Custom date ranges**: Flexible reporting periods
 
 ### 5. Data Management
@@ -155,9 +154,8 @@ src/
 
 ### System Configuration
 1. Open **Settings** page
-2. **Store Info**: Configure store name, tax rate, and currency
+2. **Store Info**: Configure store name and currency
 3. **Data Management**: Backup, restore, or clear system data
-4. **Receipt Settings**: Customize receipt appearance and options
 
 ## 🔧 Configuration
 
@@ -166,7 +164,6 @@ Create a `.env` file in the root directory for custom configuration:
 
 ```env
 VITE_APP_NAME=My POS System
-VITE_DEFAULT_TAX_RATE=10
 VITE_DEFAULT_CURRENCY=USD
 ```
 
@@ -254,4 +251,4 @@ For support and questions:
 
 ---
 
-**Built with ❤️ using React and TypeScript** 
+**Built with ❤️ using React and TypeScript**

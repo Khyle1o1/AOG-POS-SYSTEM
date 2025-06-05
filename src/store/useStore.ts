@@ -79,7 +79,6 @@ interface StoreState {
 
   // Settings (database-backed)
   settings: {
-    taxRate: number;
     currency: string;
     storeName: string;
   };
@@ -90,16 +89,14 @@ interface StoreState {
   initializeFromDatabase: () => Promise<void>;
 }
 
-const calculateCartTotals = (items: CartItem[], taxRate: number, discount: number = 0) => {
+const calculateCartTotals = (items: CartItem[], discount: number = 0) => {
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const discountAmount = (subtotal * discount) / 100;
-  const discountedSubtotal = subtotal - discountAmount;
-  const tax = (discountedSubtotal * taxRate) / 100;
-  const total = discountedSubtotal + tax;
+  const total = subtotal - discountAmount;
   
   return {
     subtotal,
-    tax,
+    tax: 0, // Tax is now always 0
     discount: discountAmount,
     total
   };
@@ -209,7 +206,7 @@ export const useStore = create<StoreState>()(
             newItems = [...state.cart.items, newItem];
           }
 
-          const totals = calculateCartTotals(newItems, state.settings.taxRate, state.cart.discount);
+          const totals = calculateCartTotals(newItems, state.cart.discount);
 
           return {
             cart: {
@@ -223,7 +220,7 @@ export const useStore = create<StoreState>()(
       removeFromCart: (productId) => {
         set((state) => {
           const newItems = state.cart.items.filter(item => item.product.id !== productId);
-          const totals = calculateCartTotals(newItems, state.settings.taxRate, state.cart.discount);
+          const totals = calculateCartTotals(newItems, state.cart.discount);
 
           return {
             cart: {
@@ -251,7 +248,7 @@ export const useStore = create<StoreState>()(
               : item
           );
 
-          const totals = calculateCartTotals(newItems, state.settings.taxRate, state.cart.discount);
+          const totals = calculateCartTotals(newItems, state.cart.discount);
 
           return {
             cart: {
@@ -276,7 +273,7 @@ export const useStore = create<StoreState>()(
 
       applyDiscount: (discountPercent) => {
         set((state) => {
-          const totals = calculateCartTotals(state.cart.items, state.settings.taxRate, discountPercent);
+          const totals = calculateCartTotals(state.cart.items, discountPercent);
           return {
             cart: {
               ...state.cart,
@@ -593,7 +590,6 @@ export const useStore = create<StoreState>()(
 
       // Settings
       settings: {
-        taxRate: 10, // 10%
         currency: 'PHP',
         storeName: 'My Store',
       },
@@ -603,7 +599,6 @@ export const useStore = create<StoreState>()(
           const dbSettings = await SettingsService.getOrCreate();
           set({
             settings: {
-              taxRate: dbSettings.taxRate,
               currency: dbSettings.currency,
               storeName: dbSettings.storeName,
             }

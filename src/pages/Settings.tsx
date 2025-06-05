@@ -2,11 +2,9 @@ import React from 'react';
 import { Settings as SettingsIcon, Save, Download, Upload, Database } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useForm } from 'react-hook-form';
-import { formatCurrency } from '../utils/currency';
 
 interface SettingsFormData {
   storeName: string;
-  taxRate: number;
   currency: string;
 }
 
@@ -20,7 +18,6 @@ const Settings: React.FC = () => {
   } = useForm<SettingsFormData>({
     defaultValues: {
       storeName: settings.storeName,
-      taxRate: settings.taxRate,
       currency: 'PHP',
     }
   });
@@ -120,26 +117,6 @@ const Settings: React.FC = () => {
               />
               {errors.storeName && (
                 <p className="mt-1 text-sm text-red-600">{errors.storeName.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tax Rate (%) *
-              </label>
-              <input
-                {...register('taxRate', { 
-                  required: 'Tax rate is required',
-                  min: { value: 0, message: 'Tax rate cannot be negative' },
-                  max: { value: 100, message: 'Tax rate cannot exceed 100%' }
-                })}
-                type="number"
-                step="0.01"
-                className="input"
-                placeholder="10.00"
-              />
-              {errors.taxRate && (
-                <p className="mt-1 text-sm text-red-600">{errors.taxRate.message}</p>
               )}
             </div>
 
@@ -284,70 +261,6 @@ const Settings: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Receipt Settings */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Receipt Settings</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-2">Receipt Preview</h3>
-            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 font-mono text-sm">
-              <div className="text-center mb-2">
-                <div className="font-bold">{settings.storeName}</div>
-                <div className="text-xs">Receipt</div>
-              </div>
-              <div className="border-t border-gray-300 pt-2 mb-2 text-xs">
-                <div>Transaction: #TXN123456789</div>
-                <div>Date: {new Date().toLocaleDateString()}</div>
-                <div>Cashier: {auth.user?.firstName} {auth.user?.lastName}</div>
-              </div>
-              <div className="border-t border-gray-300 pt-2 mb-2 text-xs">
-                <div className="flex justify-between">
-                  <span>Sample Item x1</span>
-                  <span>{formatCurrency(19.99)}</span>
-                </div>
-              </div>
-              <div className="border-t border-gray-300 pt-2 text-xs">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatCurrency(19.99)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax ({settings.taxRate}%):</span>
-                  <span>{formatCurrency(19.99 * settings.taxRate / 100)}</span>
-                </div>
-                <div className="flex justify-between font-bold">
-                  <span>Total:</span>
-                  <span>{formatCurrency(19.99 + (19.99 * settings.taxRate / 100))}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-2">Receipt Options</h3>
-            <div className="space-y-3">
-              <label className="flex items-center">
-                <input type="checkbox" className="h-4 w-4 text-primary-600 rounded border-gray-300" defaultChecked />
-                <span className="ml-2 text-sm text-gray-700">Show store logo</span>
-              </label>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-4 w-4 text-primary-600 rounded border-gray-300" defaultChecked />
-                <span className="ml-2 text-sm text-gray-700">Print customer copy</span>
-              </label>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-4 w-4 text-primary-600 rounded border-gray-300" />
-                <span className="ml-2 text-sm text-gray-700">Print merchant copy</span>
-              </label>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-4 w-4 text-primary-600 rounded border-gray-300" defaultChecked />
-                <span className="ml-2 text-sm text-gray-700">Auto-print after sale</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

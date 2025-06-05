@@ -484,10 +484,6 @@ const Reports: React.FC = () => {
                       <span>-{formatCurrency(selectedTransaction.discount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tax:</span>
-                    <span>{formatCurrency(selectedTransaction.tax)}</span>
-                  </div>
                   <div className="border-t border-gray-200 pt-2">
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total:</span>

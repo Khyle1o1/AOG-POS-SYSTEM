@@ -204,13 +204,11 @@ export class MigrationService {
           if (!existingSettings) {
             const dbSettings: DatabaseSettings = {
               id: 'migrated',
-              taxRate: legacyData.settings.taxRate || 10,
               currency: 'PHP',
               storeName: legacyData.settings.storeName || 'My Store',
               storeAddress: legacyData.settings.storeAddress,
               storePhone: legacyData.settings.storePhone,
               storeEmail: legacyData.settings.storeEmail,
-              receiptMessage: legacyData.settings.receiptMessage,
               autoBackup: legacyData.settings.autoBackup || false,
               backupFrequency: legacyData.settings.backupFrequency || 'daily',
               lowStockAlert: legacyData.settings.lowStockAlert !== undefined ? legacyData.settings.lowStockAlert : true,

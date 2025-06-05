@@ -29,13 +29,11 @@ export interface DatabaseActivityLog extends ActivityLog {
 
 export interface DatabaseSettings {
   id: string;
-  taxRate: number;
   currency: string;
   storeName: string;
   storeAddress?: string;
   storePhone?: string;
   storeEmail?: string;
-  receiptMessage?: string;
   autoBackup: boolean;
   backupFrequency: 'daily' | 'weekly' | 'monthly';
   lowStockAlert: boolean;

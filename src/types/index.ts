@@ -261,9 +261,7 @@ export interface AppSettings {
   storeAddress: string;
   storePhone: string;
   storeEmail: string;
-  taxRate: number;
   currency: string;
-  receiptMessage?: string;
   autoBackup: boolean;
   backupFrequency: 'daily' | 'weekly' | 'monthly';
   lowStockAlert: boolean;
