@@ -3,7 +3,6 @@ import {
   Coins, 
   TrendingUp, 
   Package, 
-  Users,
   ShoppingCart,
   AlertTriangle,
   ArrowRight,
@@ -21,7 +20,7 @@ import { formatCurrency } from '../utils/currency';
 import { Transaction } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { transactions, products, users, cart } = useStore();
+  const { transactions, products, cart } = useStore();
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = React.useState(false);
 
@@ -37,8 +36,6 @@ const Dashboard: React.FC = () => {
   const totalTransactions = todayTransactions.length;
   
   const lowStockProducts = products?.filter(p => p.quantity <= p.minStockLevel) || [];
-  const totalProducts = products?.length || 0;
-  const totalUsers = users?.length || 0;
   
   // Calculate total inventory cost
   const totalInventoryCost = products?.reduce((sum, product) => {

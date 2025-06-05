@@ -3,10 +3,7 @@ import {
   TrendingUp, 
   Coins, 
   ShoppingCart, 
-  Package,
   Download,
-  BarChart3,
-  PieChart,
   FileText,
   FileDown,
   Calculator,
@@ -78,53 +75,7 @@ const Reports: React.FC = () => {
   // Calculate metrics
   const totalSales = filteredTransactions.reduce((sum, t) => sum + t.total, 0);
   const totalTransactions = filteredTransactions.length;
-  const averageTransaction = totalTransactions > 0 ? totalSales / totalTransactions : 0;
   
-  const refunds = transactions.filter(t => 
-    t.createdAt >= start && 
-    t.createdAt <= end && 
-    t.type === 'refund'
-  );
-  const totalRefunds = refunds.reduce((sum, t) => sum + t.total, 0);
-  const netSales = totalSales - totalRefunds;
-
-  // Product sales analysis
-  const productSales = filteredTransactions.reduce((acc, transaction) => {
-    transaction.items.forEach(item => {
-      const productId = item.productId;
-      if (!acc[productId]) {
-        acc[productId] = {
-          productId,
-          productName: item.product?.name || 'Unknown',
-          quantitySold: 0,
-          revenue: 0,
-          profit: 0
-        };
-      }
-      acc[productId].quantitySold += item.quantity;
-      acc[productId].revenue += item.totalPrice;
-      acc[productId].profit += (item.unitPrice - (item.product?.cost || 0)) * item.quantity;
-    });
-    return acc;
-  }, {} as Record<string, any>);
-
-  const topProducts = Object.values(productSales)
-    .sort((a: any, b: any) => b.revenue - a.revenue)
-    .slice(0, 10);
-
-  // Payment method breakdown
-  const paymentMethods = filteredTransactions.reduce((acc, t) => {
-    acc[t.paymentMethod] = (acc[t.paymentMethod] || 0) + t.total;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Hourly sales data
-  const hourlySales = filteredTransactions.reduce((acc, t) => {
-    const hour = t.createdAt.getHours();
-    acc[hour] = (acc[hour] || 0) + t.total;
-    return acc;
-  }, {} as Record<number, number>);
-
   // Calculate total inventory cost
   const totalInventoryCost = products?.reduce((sum, product) => {
     return sum + (product.cost * product.quantity);

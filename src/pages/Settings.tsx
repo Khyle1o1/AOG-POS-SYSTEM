@@ -2,6 +2,7 @@ import React from 'react';
 import { Settings as SettingsIcon, Save, Download, Upload, Database } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useForm } from 'react-hook-form';
+import { DatabaseService } from '../database/services';
 
 interface SettingsFormData {
   storeName: string;
@@ -9,7 +10,7 @@ interface SettingsFormData {
 }
 
 const Settings: React.FC = () => {
-  const { settings, updateSettings, auth, transactions, products, users } = useStore();
+  const { settings, updateSettings, auth, transactions, products, users, initializeFromDatabase } = useStore();
   
   const {
     register,
@@ -28,52 +29,83 @@ const Settings: React.FC = () => {
     alert('Settings saved successfully!');
   };
 
-  const exportData = () => {
-    const data = {
-      settings,
-      transactions,
-      products,
-      users: users.map(u => ({ ...u, password: undefined })), // Remove passwords
-      exportDate: new Date().toISOString(),
-      version: '1.0.0'
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pos-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const exportData = async () => {
+    try {
+      const blob = await DatabaseService.backup();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pos-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export data. Please try again.');
+    }
   };
 
-  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const importData = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Reset the input value so the same file can be selected again if needed
+    event.target.value = '';
+
+    if (!file.name.endsWith('.json')) {
+      alert('Please select a valid JSON backup file');
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const data = JSON.parse(e.target?.result as string);
+        const jsonData = e.target?.result as string;
         
-        if (window.confirm('This will overwrite all current data. Are you sure?')) {
-          // In a real implementation, you would validate the data structure
-          // and update each store section accordingly
-          console.log('Import data:', data);
-          alert('Data import feature would be implemented here');
+        // Validate that it's valid JSON
+        const data = JSON.parse(jsonData);
+        
+        // Basic validation of backup file structure
+        if (!data.version || (!data.users && !data.products && !data.transactions)) {
+          alert('Invalid backup file format. This does not appear to be a valid POS backup file.');
+          return;
+        }
+        
+        if (window.confirm('This will overwrite all current data including transactions, products, and users. This action cannot be undone. Are you sure?')) {
+          try {
+            // Show loading state (you might want to add a loading indicator here)
+            await DatabaseService.restore(jsonData);
+            
+            // Refresh all store data from the database
+            await initializeFromDatabase();
+            
+            alert('Data imported successfully! All data has been restored from the backup.');
+          } catch (error) {
+            console.error('Import failed:', error);
+            alert('Failed to import data. The backup file may be corrupted or incompatible.');
+          }
         }
       } catch (error) {
-        alert('Invalid backup file format');
+        console.error('Failed to parse backup file:', error);
+        alert('Invalid backup file format. Please select a valid JSON backup file.');
       }
     };
     reader.readAsText(file);
   };
 
-  const clearAllData = () => {
+  const clearAllData = async () => {
     if (window.confirm('This will delete ALL data including transactions, products, and users. This action cannot be undone. Are you sure?')) {
-      if (window.confirm('Final confirmation: This will permanently delete everything. Type "DELETE" to confirm.')) {
-        // In a real implementation, you would clear all store data
-        alert('Data clearing would be implemented here');
+      if (window.confirm('Final confirmation: This will permanently delete everything. Are you sure you want to proceed?')) {
+        try {
+          await DatabaseService.clearAll();
+          
+          // Refresh all store data from the database
+          await initializeFromDatabase();
+          
+          alert('All data has been successfully cleared.');
+        } catch (error) {
+          console.error('Clear data failed:', error);
+          alert('Failed to clear data. Please try again.');
+        }
       }
     }
   };
@@ -200,24 +232,35 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Import Data */}
-            <div className="border border-gray-200 rounded-lg p-4">
+            <div className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors duration-200">
               <div className="flex items-center mb-2">
                 <Upload className="h-5 w-5 text-green-600 mr-2" />
                 <h3 className="font-medium text-gray-900">Import Data</h3>
               </div>
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-sm text-gray-600 mb-4">
                 Restore data from a backup file
               </p>
-              <label className="btn btn-outline w-full cursor-pointer">
-                <Upload className="h-4 w-4 mr-2" />
-                Import Backup
+              
+              {/* Custom File Upload Area */}
+              <div className="relative">
                 <input
                   type="file"
                   accept=".json"
                   onChange={importData}
-                  className="hidden"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  id="backup-file-input"
                 />
-              </label>
+                <label 
+                  htmlFor="backup-file-input"
+                  className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-green-300 rounded-lg cursor-pointer bg-green-50 hover:bg-green-100 transition-colors duration-200"
+                >
+                  <div className="flex flex-col items-center justify-center">
+                    <Upload className="h-6 w-6 text-green-600 mb-2" />
+                    <p className="text-sm font-medium text-green-800">Click to upload</p>
+                    <p className="text-xs text-green-600">JSON files only</p>
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* Clear Data */}
