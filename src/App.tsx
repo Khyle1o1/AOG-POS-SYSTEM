@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout/Layout';
 import Login from './components/Auth/Login';
+import LicenseActivation from './components/LicenseActivation';
 import Dashboard from './pages/Dashboard';
 import Sales from './pages/Sales';
 import Inventory from './pages/Inventory';
@@ -11,6 +12,7 @@ import Settings from './pages/Settings';
 import { useStore } from './store/useStore';
 import { initializeDatabase, MigrationService } from './database';
 import { createAdmin123User } from './utils/createAdminUser';
+import { LicenseService } from './services/LicenseService';
 import { RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
 
 // Component for role-based route protection
@@ -45,6 +47,8 @@ const App: React.FC = () => {
   const [initError, setInitError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isLicensed, setIsLicensed] = useState(false);
+  const [checkingLicense, setCheckingLicense] = useState(true);
   const { auth, initializeFromDatabase } = useStore();
 
   // Wait for Zustand persist hydration
@@ -60,6 +64,41 @@ const App: React.FC = () => {
     
     return unsubscribe;
   }, []);
+
+  // Check license on app start
+  useEffect(() => {
+    const checkLicense = async () => {
+      try {
+        setCheckingLicense(true);
+        const licensed = await LicenseService.isLicensed();
+        setIsLicensed(licensed);
+        
+        if (licensed) {
+          console.log('License validated successfully');
+          // Show license expiry warning if needed
+          if (LicenseService.isExpiringSoon()) {
+            const daysLeft = LicenseService.getDaysUntilExpiry();
+            console.warn(`License expires in ${daysLeft} days`);
+          }
+        } else {
+          console.log('No valid license found');
+        }
+      } catch (error) {
+        console.error('License check failed:', error);
+        setIsLicensed(false);
+      } finally {
+        setCheckingLicense(false);
+      }
+    };
+
+    if (isHydrated) {
+      checkLicense();
+    }
+  }, [isHydrated]);
+
+  const handleLicenseActivated = () => {
+    setIsLicensed(true);
+  };
 
   const initializeApp = async () => {
     try {
@@ -140,8 +179,14 @@ const App: React.FC = () => {
     }
   };
 
-  // Show loading screen during initialization or hydration
-  if (isInitializing || !isHydrated) {
+  // Show loading screen during initialization, hydration, or license checking
+  if (isInitializing || !isHydrated || checkingLicense) {
+    const loadingMessage = !isHydrated 
+      ? 'Loading session...' 
+      : checkingLicense 
+        ? 'Validating license...'
+        : 'Setting up database and loading data...';
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -149,9 +194,7 @@ const App: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Initializing POS System
           </h2>
-          <p className="text-gray-500">
-            {!isHydrated ? 'Loading session...' : 'Setting up database and loading data...'}
-          </p>
+          <p className="text-gray-500">{loadingMessage}</p>
         </div>
       </div>
     );
@@ -225,6 +268,11 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Show license activation screen if not licensed
+  if (!isLicensed) {
+    return <LicenseActivation onActivated={handleLicenseActivated} />;
   }
 
   return (

@@ -42,7 +42,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         }
       });
     }
-  }
+  },
+
+  // License management
+  getMachineId: () => ipcRenderer.invoke('get-machine-id')
 });
 
 // Expose a limited set of node.js functionality

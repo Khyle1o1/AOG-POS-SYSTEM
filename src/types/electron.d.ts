@@ -20,6 +20,9 @@ export interface ElectronAPI {
 
   // Notification support
   showNotification: (title: string, body: string) => void;
+
+  // License management
+  getMachineId: () => Promise<string>;
 }
 
 export interface NodeAPI {

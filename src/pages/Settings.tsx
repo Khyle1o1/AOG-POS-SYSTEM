@@ -1,8 +1,9 @@
 import React from 'react';
-import { Settings as SettingsIcon, Save, Download, Upload, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Download, Upload, Database, Shield, Key, AlertCircle, Calendar } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useForm } from 'react-hook-form';
 import { DatabaseService } from '../database/services';
+import { LicenseService, LicenseInfo } from '../services/LicenseService';
 
 interface SettingsFormData {
   storeName: string;
@@ -11,6 +12,9 @@ interface SettingsFormData {
 
 const Settings: React.FC = () => {
   const { settings, updateSettings, auth, transactions, products, users, initializeFromDatabase } = useStore();
+  
+  const [licenseInfo, setLicenseInfo] = React.useState<LicenseInfo | null>(null);
+  const [licenseExpiry, setLicenseExpiry] = React.useState<number | null>(null);
   
   const {
     register,
@@ -22,6 +26,27 @@ const Settings: React.FC = () => {
       currency: 'PHP',
     }
   });
+
+  // Load license info on component mount
+  React.useEffect(() => {
+    const loadLicenseInfo = () => {
+      const info = LicenseService.getLicenseInfo();
+      setLicenseInfo(info);
+      
+      const days = LicenseService.getDaysUntilExpiry();
+      setLicenseExpiry(days);
+    };
+
+    loadLicenseInfo();
+  }, []);
+
+  const handleDeactivateLicense = () => {
+    if (window.confirm('Are you sure you want to deactivate this license? The application will require reactivation to continue working.')) {
+      LicenseService.deactivateLicense();
+      alert('License deactivated successfully. The application will now restart.');
+      window.location.reload();
+    }
+  };
 
   const onSubmit = (data: SettingsFormData) => {
     // Force currency to be PHP
@@ -205,6 +230,102 @@ const Settings: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* License Information */}
+      <div className="card">
+        <div className="flex items-center mb-4">
+          <Shield className="h-6 w-6 text-blue-600 mr-2" />
+          <h2 className="text-lg font-semibold text-gray-900">License Information</h2>
+        </div>
+        
+        {licenseInfo ? (
+          <div className="space-y-4">
+            {/* License Status */}
+            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <Shield className="h-5 w-5 text-green-600 mr-2" />
+                <span className="text-green-800 font-medium">License Active</span>
+              </div>
+              <span className="text-green-600 text-sm">Valid & Activated</span>
+            </div>
+
+            {/* Expiry Warning */}
+            {licenseExpiry !== null && licenseExpiry <= 30 && licenseExpiry > 0 && (
+              <div className="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+                <span className="text-yellow-800 text-sm">
+                  License expires in {licenseExpiry} day{licenseExpiry !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
+
+            {/* License Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Customer Name</label>
+                <p className="text-sm text-gray-900">{licenseInfo.customerName}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                <p className="text-sm text-gray-900">{licenseInfo.customerEmail}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Expires</label>
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 text-gray-400 mr-1" />
+                  <p className="text-sm text-gray-900">
+                    {licenseInfo.expiryDate.toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Features</label>
+                <p className="text-sm text-gray-900">{licenseInfo.features.join(', ')}</p>
+              </div>
+            </div>
+
+            {/* License Key */}
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">License Key</label>
+              <div className="flex items-center">
+                <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 flex-1 mr-2">
+                  <p className="text-sm text-gray-900 font-mono break-all">
+                    {licenseInfo.licenseKey}
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(licenseInfo.licenseKey)}
+                  className="btn btn-outline text-xs px-3 py-2"
+                  title="Copy license key"
+                >
+                  <Key className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            {auth.user?.role === 'admin' && (
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleDeactivateLicense}
+                  className="btn btn-danger text-sm"
+                >
+                  Deactivate License
+                </button>
+                <p className="mt-2 text-xs text-gray-500">
+                  Deactivating the license will require reactivation to use the system.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Shield className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 mb-2">No license information available</p>
+            <p className="text-sm text-gray-400">This should not happen if the app is running.</p>
+          </div>
+        )}
       </div>
 
       {/* Data Management */}

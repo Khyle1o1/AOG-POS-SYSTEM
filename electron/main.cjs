@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { machineIdSync } = require('node-machine-id');
 
 // Conditional import of auto-updater to prevent startup failures
 let autoUpdater;
@@ -289,6 +290,22 @@ ipcMain.handle('show-save-dialog', async (event, options) => {
 ipcMain.handle('show-open-dialog', async (event, options) => {
   const result = await dialog.showOpenDialog(mainWindow, options);
   return result;
+});
+
+// License management
+ipcMain.handle('get-machine-id', async () => {
+  try {
+    return machineIdSync();
+  } catch (error) {
+    console.error('Failed to get machine ID:', error);
+    // Return a fallback ID based on OS info
+    const os = require('os');
+    return require('crypto')
+      .createHash('sha256')
+      .update(os.hostname() + os.platform() + os.arch())
+      .digest('hex')
+      .substring(0, 32);
+  }
 });
 
 // Auto updater events (only if available)
