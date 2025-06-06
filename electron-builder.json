@@ -2,7 +2,12 @@
   "appId": "com.posystem.app",
   "productName": "POS System",
   "copyright": "Copyright © 2025 AOG TECH POS System",
-  "asar": false,
+  "asar": true,
+  "asarUnpack": [
+    "**/*.node",
+    "**/node_modules/**/bin/**/*",
+    "**/node_modules/.bin/**/*"
+  ],
   "icon": "assets/icon.png",
   "directories": {
     "output": "dist-electron"

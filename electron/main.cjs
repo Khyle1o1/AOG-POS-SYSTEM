@@ -38,7 +38,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       webSecurity: !isDev,
     },
-    show: true, // Show immediately for debugging
+    show: false, // Don't show until ready
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
   });
 
@@ -84,8 +84,7 @@ function createWindow() {
       mainWindow.loadURL('data:text/html,<h1>POS System</h1><p>Application files not found. Please reinstall the application.</p>');
     }
 
-    // Always open DevTools in production for debugging
-    mainWindow.webContents.openDevTools();
+    // DevTools are not opened in production for a clean user experience
   }
 
   // Handle window closed
@@ -122,6 +121,8 @@ function createWindow() {
   // Add more debugging events
   mainWindow.webContents.on('did-finish-load', () => {
     console.log('Page finished loading');
+    // Show the window once the page is fully loaded
+    mainWindow.show();
   });
 
   mainWindow.webContents.on('dom-ready', () => {
