@@ -204,6 +204,8 @@ const Inventory: React.FC = () => {
         categoryId: product.categoryId,
         isActive: product.isActive,
         imageUrl: product.imageUrl || '',
+        wholesalePrice: product.wholesalePrice || undefined,
+        wholesaleMinQuantity: product.wholesaleMinQuantity || undefined,
       });
     } else {
       setEditingProduct(null);
@@ -220,6 +222,8 @@ const Inventory: React.FC = () => {
         categoryId: categories[0]?.id || '',
         isActive: true,
         imageUrl: '',
+        wholesalePrice: undefined,
+        wholesaleMinQuantity: undefined,
       });
     }
     setShowModal(true);
@@ -1232,6 +1236,46 @@ const Inventory: React.FC = () => {
                     {errors.cost && (
                       <p className="mt-1 text-sm text-red-600">{errors.cost.message}</p>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Wholesale Price
+                    </label>
+                    <input
+                      {...register('wholesalePrice', { 
+                        min: { value: 0.01, message: 'Wholesale price must be greater than 0' },
+                        valueAsNumber: true
+                      })}
+                      type="number"
+                      step="0.01"
+                      className="input"
+                      placeholder="₱0.00 (optional)"
+                    />
+                    {errors.wholesalePrice && (
+                      <p className="mt-1 text-sm text-red-600">{errors.wholesalePrice.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Wholesale Min Quantity
+                    </label>
+                    <input
+                      {...register('wholesaleMinQuantity', { 
+                        min: { value: 1, message: 'Minimum quantity must be at least 1' },
+                        valueAsNumber: true
+                      })}
+                      type="number"
+                      className="input"
+                      placeholder="0 (optional)"
+                    />
+                    {errors.wholesaleMinQuantity && (
+                      <p className="mt-1 text-sm text-red-600">{errors.wholesaleMinQuantity.message}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Minimum quantity to apply wholesale pricing
+                    </p>
                   </div>
 
                   <div>

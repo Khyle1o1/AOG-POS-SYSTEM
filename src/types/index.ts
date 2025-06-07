@@ -59,6 +59,9 @@ export interface Product {
   category?: Category;
   isActive: boolean;
   imageUrl?: string;
+  // Wholesale pricing fields
+  wholesalePrice?: number;
+  wholesaleMinQuantity?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,6 +78,9 @@ export interface ProductFormData {
   categoryId: string;
   isActive: boolean;
   imageUrl?: string;
+  // Wholesale pricing fields
+  wholesalePrice?: number;
+  wholesaleMinQuantity?: number;
 }
 
 // Transaction and Sales Types

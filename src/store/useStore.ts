@@ -89,6 +89,18 @@ interface StoreState {
   initializeFromDatabase: () => Promise<void>;
 }
 
+// Helper function to calculate wholesale pricing
+const getEffectivePrice = (product: Product, quantity: number): number => {
+  if (
+    product.wholesalePrice && 
+    product.wholesaleMinQuantity && 
+    quantity >= product.wholesaleMinQuantity
+  ) {
+    return product.wholesalePrice;
+  }
+  return product.price;
+};
+
 const calculateCartTotals = (items: CartItem[], discount: number = 0) => {
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const discountAmount = (subtotal * discount) / 100;
@@ -187,21 +199,26 @@ export const useStore = create<StoreState>()(
           let newItems: CartItem[];
 
           if (existingItem) {
+            const newQuantity = existingItem.quantity + quantity;
+            const effectivePrice = getEffectivePrice(product, newQuantity);
+            
             newItems = state.cart.items.map(item =>
               item.product.id === product.id
                 ? {
                     ...item,
-                    quantity: item.quantity + quantity,
-                    totalPrice: (item.quantity + quantity) * item.unitPrice
+                    quantity: newQuantity,
+                    unitPrice: effectivePrice,
+                    totalPrice: newQuantity * effectivePrice
                   }
                 : item
             );
           } else {
+            const effectivePrice = getEffectivePrice(product, quantity);
             const newItem: CartItem = {
               product,
               quantity,
-              unitPrice: product.price,
-              totalPrice: quantity * product.price,
+              unitPrice: effectivePrice,
+              totalPrice: quantity * effectivePrice,
             };
             newItems = [...state.cart.items, newItem];
           }
@@ -238,15 +255,18 @@ export const useStore = create<StoreState>()(
             return state;
           }
 
-          const newItems = state.cart.items.map(item =>
-            item.product.id === productId
-              ? {
-                  ...item,
-                  quantity,
-                  totalPrice: quantity * item.unitPrice
-                }
-              : item
-          );
+          const newItems = state.cart.items.map(item => {
+            if (item.product.id === productId) {
+              const effectivePrice = getEffectivePrice(item.product, quantity);
+              return {
+                ...item,
+                quantity,
+                unitPrice: effectivePrice,
+                totalPrice: quantity * effectivePrice
+              };
+            }
+            return item;
+          });
 
           const totals = calculateCartTotals(newItems, state.cart.discount);
 

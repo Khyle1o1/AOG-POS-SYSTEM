@@ -24,6 +24,8 @@ const normalizeProduct = (product: any): Product => {
     cost: Number(product.cost) || 0,
     quantity: Number(product.quantity) || 0,
     minStockLevel: Number(product.minStockLevel) || 0,
+    wholesalePrice: product.wholesalePrice ? Number(product.wholesalePrice) : undefined,
+    wholesaleMinQuantity: product.wholesaleMinQuantity ? Number(product.wholesaleMinQuantity) : undefined,
     isActive: Boolean(product.isActive),
     createdAt: product.createdAt instanceof Date ? product.createdAt : new Date(product.createdAt),
     updatedAt: product.updatedAt instanceof Date ? product.updatedAt : new Date(product.updatedAt),

@@ -27,15 +27,22 @@
   "win": {
     "target": [
       {
-        "target": "portable",
-        "arch": ["x64"]
-      },
-      {
-        "target": "zip",
+        "target": "nsis",
         "arch": ["x64"]
       }
     ],
-    "publisherName": "POS System"
+    "publisherName": "AOG TECH"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "installerIcon": "assets/icon.ico",
+    "uninstallerIcon": "assets/icon.ico",
+    "installerHeaderIcon": "assets/icon.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "POS System"
   },
   "mac": {
     "category": "public.app-category.business",

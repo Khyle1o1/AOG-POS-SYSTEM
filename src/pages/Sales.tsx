@@ -250,10 +250,23 @@ const Sales: React.FC = () => {
                     {product.name}
                   </h3>
                   <p className="text-xs text-gray-500 mb-2">SKU: {product.sku}</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {formatCurrency(product.price)}
-                  </p>
-                  <p className="text-xs text-gray-500">
+                  <div className="space-y-1">
+                    <p className="text-lg font-bold text-gray-900">
+                      {formatCurrency(product.price)}
+                    </p>
+                    {/* Wholesale pricing info */}
+                    {product.wholesalePrice && product.wholesaleMinQuantity && (
+                      <div className="text-xs">
+                        <p className="text-green-600 font-medium">
+                          Wholesale: {formatCurrency(product.wholesalePrice)}
+                        </p>
+                        <p className="text-gray-500">
+                          Min qty: {product.wholesaleMinQuantity}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
                     Stock: {product.quantity}
                   </p>
                 </div>
@@ -289,9 +302,19 @@ const Sales: React.FC = () => {
               {cart.items.map(item => (
                 <div key={item.product.id} className="bg-gray-50 p-3 rounded-lg">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-gray-900 text-sm">
-                      {item.product.name}
-                    </h4>
+                    <div>
+                      <h4 className="font-medium text-gray-900 text-sm">
+                        {item.product.name}
+                      </h4>
+                      {/* Wholesale pricing indicator */}
+                      {item.product.wholesalePrice && 
+                       item.product.wholesaleMinQuantity && 
+                       item.quantity >= item.product.wholesaleMinQuantity && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                          Wholesale Price Applied
+                        </span>
+                      )}
+                    </div>
                     <button
                       onClick={() => removeFromCart(item.product.id)}
                       className="text-red-500 hover:text-red-700"
@@ -320,6 +343,14 @@ const Sales: React.FC = () => {
                     <div className="text-right">
                       <p className="text-sm text-gray-500">
                         {formatCurrency(item.unitPrice)} each
+                        {/* Show regular price if wholesale is applied */}
+                        {item.product.wholesalePrice && 
+                         item.product.wholesaleMinQuantity && 
+                         item.quantity >= item.product.wholesaleMinQuantity && (
+                          <span className="ml-1 line-through text-gray-400">
+                            {formatCurrency(item.product.price)}
+                          </span>
+                        )}
                       </p>
                       <p className="font-medium text-gray-900">
                         {formatCurrency(item.totalPrice)}

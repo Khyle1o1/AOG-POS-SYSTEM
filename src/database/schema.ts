@@ -56,7 +56,7 @@ export class POSDatabase extends Dexie {
     
     this.version(1).stores({
       users: '&id, username, email, role, isActive, createdAt',
-      products: '&id, name, sku, categoryId, isActive, quantity, price, createdAt',
+      products: '&id, name, sku, categoryId, isActive, quantity, price, wholesalePrice, wholesaleMinQuantity, createdAt',
       categories: '&id, name, createdAt',
       transactions: '&id, transactionNumber, type, status, cashierId, createdAt, total',
       activityLogs: '&id, userId, action, entity, entityId, createdAt',
