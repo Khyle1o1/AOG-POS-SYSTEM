@@ -308,6 +308,34 @@ ipcMain.handle('get-machine-id', async () => {
   }
 });
 
+// License scheduler event handlers
+ipcMain.on('monthly-license-check-success', (event, data) => {
+  console.log('Main Process: Monthly license check successful:', data);
+  
+  // You can add additional handling here, such as:
+  // - Logging to a file
+  // - Sending analytics
+  // - Updating app status
+});
+
+ipcMain.on('monthly-license-check-failed', (event, data) => {
+  console.warn('Main Process: Monthly license check failed:', data);
+  
+  // You can add additional handling here, such as:
+  // - Showing system notifications
+  // - Logging to a file
+  // - Alerting administrators
+  
+  // Show system notification if available
+  if (mainWindow) {
+    mainWindow.webContents.send('license-check-failed-notification', data);
+  }
+});
+
+ipcMain.on('license-scheduler-status', (event, data) => {
+  console.log('Main Process: License scheduler status update:', data);
+});
+
 // Auto updater events (only if available)
 if (autoUpdater) {
   autoUpdater.on('checking-for-update', () => {

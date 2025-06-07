@@ -25,7 +25,7 @@ const LicenseActivation: React.FC<LicenseActivationProps> = ({ onActivated }) =>
 
     try {
       // First validate the license key
-      const validation = LicenseService.validateLicenseKey(licenseKey.trim());
+      const validation = await LicenseService.validateLicenseKey(licenseKey.trim());
       
       if (!validation.valid) {
         setError(validation.error || 'Invalid license key');

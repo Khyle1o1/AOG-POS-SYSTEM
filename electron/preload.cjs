@@ -45,7 +45,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // License management
-  getMachineId: () => ipcRenderer.invoke('get-machine-id')
+  getMachineId: () => ipcRenderer.invoke('get-machine-id'),
+
+  // IPC communication for license scheduler
+  sendToMain: (channel, data) => {
+    // Only allow specific channels for security
+    const allowedChannels = [
+      'monthly-license-check-success',
+      'monthly-license-check-failed',
+      'license-scheduler-status'
+    ];
+    
+    if (allowedChannels.includes(channel)) {
+      ipcRenderer.send(channel, data);
+    } else {
+      console.warn('Attempted to send on disallowed channel:', channel);
+    }
+  }
 });
 
 // Expose a limited set of node.js functionality

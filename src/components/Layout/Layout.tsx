@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import Footer from '../Footer/Footer';
+import LicenseStatusNotification from '../LicenseStatusNotification';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -148,6 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6">
+          <LicenseStatusNotification />
           {children}
         </main>
 

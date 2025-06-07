@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { LICENSE_CONFIG, LICENSE_ENDPOINTS } from '../config/license';
 
 export interface LicenseInfo {
   licenseKey: string;
@@ -11,18 +12,139 @@ export interface LicenseInfo {
   machineId?: string;
   activatedAt?: Date;
   isValid?: boolean;
+  status?: string;
+  suspendedAt?: Date;
+  suspendedReason?: string;
+  lastChecked?: string;
 }
 
 export interface LicenseValidation {
   valid: boolean;
   info?: LicenseInfo;
   error?: string;
+  reason?: string;
+  details?: string;
 }
 
 export class LicenseService {
   private static readonly SECRET_KEY = 'AOG-TECH-POS-SYSTEM-2024-SECRET-KEY-CHANGE-IN-PRODUCTION';
   private static readonly PRODUCT_ID = 'AOG-TECH-POS-SYSTEM-V1';
   private static readonly STORAGE_KEY = 'pos_license_data';
+  
+  // Cache for last license check to avoid excessive API calls
+  private static lastLicenseCheck: { timestamp: number; result: boolean } | null = null;
+
+  /**
+   * Make a request to the license server with timeout and retry logic
+   */
+  private static async makeRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LICENSE_CONFIG.REQUEST_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
+  /**
+   * Check license status against the license server
+   */
+  private static async checkLicenseWithServer(licenseKey: string): Promise<LicenseValidation> {
+    try {
+      const url = `${LICENSE_CONFIG.SERVER_URL}${LICENSE_ENDPOINTS.CHECK_STATUS.replace(':licenseKey', encodeURIComponent(licenseKey))}`;
+      
+      if (LICENSE_CONFIG.ENABLE_DEBUG_LOGS) {
+        console.log('Checking license with server:', url);
+      }
+
+      const response = await this.makeRequest(url);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        if (LICENSE_CONFIG.ENABLE_DEBUG_LOGS) {
+          console.warn('License server returned error:', errorData);
+        }
+        
+        return { 
+          valid: false, 
+          error: errorData.error || `Server error: ${response.status}`,
+          reason: errorData.error || 'Server validation failed'
+        };
+      }
+
+      const data = await response.json();
+      
+      if (LICENSE_CONFIG.ENABLE_DEBUG_LOGS) {
+        console.log('License server response:', data);
+      }
+      
+      return {
+        valid: data.valid,
+        reason: data.reason,
+        details: data.details,
+        info: data.license ? {
+          licenseKey: data.licenseKey,
+          productId: this.PRODUCT_ID,
+          customerEmail: data.license.customer.email,
+          customerName: data.license.customer.name,
+          expiryDate: new Date(data.license.expiresAt),
+          maxActivations: data.license.maxActivations,
+          features: data.license.features || ['basic'],
+          status: data.status,
+          suspendedAt: data.license.suspendedAt ? new Date(data.license.suspendedAt) : undefined,
+          suspendedReason: data.license.suspendedReason
+        } : undefined
+      };
+    } catch (error) {
+      console.error('License server validation failed:', error);
+      
+      if (LICENSE_CONFIG.ALLOW_OFFLINE_MODE) {
+        // Check if we have valid cached license data and are within grace period
+        const licenseInfo = this.getLicenseInfo();
+        if (licenseInfo && licenseInfo.activatedAt) {
+          const timeSinceActivation = Date.now() - licenseInfo.activatedAt.getTime();
+          const timeSinceLastCheck = licenseInfo.lastChecked ? Date.now() - new Date(licenseInfo.lastChecked).getTime() : 0;
+          
+          // Check if license is not expired based on its expiry date
+          const isNotExpired = licenseInfo.expiryDate && licenseInfo.expiryDate.getTime() > Date.now();
+          
+          // Allow offline operation if:
+          // 1. License has not expired
+          // 2. We're within the offline grace period since activation
+          // 3. The last successful check was recent enough
+          if (isNotExpired && 
+              (timeSinceActivation < LICENSE_CONFIG.OFFLINE_GRACE_PERIOD || 
+               timeSinceLastCheck < LICENSE_CONFIG.OFFLINE_GRACE_PERIOD)) {
+            console.warn('Using offline mode due to server unreachability - license remains valid');
+            return {
+              valid: true,
+              info: licenseInfo,
+              reason: 'Offline mode - server unreachable but license cached and valid'
+            };
+          } else {
+            console.warn('Offline grace period exceeded or license expired locally');
+          }
+        } else {
+          console.warn('No valid cached license data found for offline mode');
+        }
+      }
+      
+      return { 
+        valid: false, 
+        error: 'Cannot reach license server for validation',
+        reason: 'Server unreachable and no valid offline license'
+      };
+    }
+  }
 
   /**
    * Get machine ID for hardware fingerprinting
@@ -67,7 +189,7 @@ export class LicenseService {
   }
 
   /**
-   * Generate a license key
+   * Generate a license key (kept for backward compatibility)
    */
   static generateLicenseKey(
     customerEmail: string, 
@@ -103,57 +225,36 @@ export class LicenseService {
   }
 
   /**
-   * Validate license key format and signature
+   * Validate license key against the server database
    */
-  static validateLicenseKey(licenseKey: string): LicenseValidation {
+  static async validateLicenseKey(licenseKey: string): Promise<LicenseValidation> {
     try {
       if (!licenseKey || typeof licenseKey !== 'string') {
         return { valid: false, error: 'Invalid license key format' };
       }
 
-      // Remove dashes and check format
+      // Remove dashes and check basic format
       const cleanKey = licenseKey.replace(/-/g, '').toUpperCase();
       
       if (cleanKey.length !== 25) {
         return { valid: false, error: 'Invalid license key length' };
       }
 
-      // For the new hash-based system, we need to validate against known license data
-      // Since we can't decode customer info from the hash, we'll validate the format
-      // and provide a mechanism to register license details
-      
-      // Check if key contains only valid hex characters
-      if (!/^[0-9A-F]+$/.test(cleanKey)) {
+      // Check if key contains only valid characters
+      if (!/^[0-9A-F]+$/i.test(cleanKey)) {
         return { valid: false, error: 'Invalid license key format' };
       }
 
-      // For demo purposes, let's create some demo license data
-      // In a real system, you would look this up from a database or validate against a server
-      const demoLicenses = {
-        // This would be a lookup table of valid licenses
-        'DEFAULT_DEMO_KEY': {
-          customerEmail: 'demo@aogtech.com',
-          customerName: 'Demo Customer',
-          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-          features: ['all'],
-          maxActivations: 1
-        }
-      };
+      // Check against license server
+      const serverValidation = await this.checkLicenseWithServer(licenseKey);
+      
+      if (!serverValidation.valid) {
+        // Clear local license data if server says it's invalid
+        localStorage.removeItem(this.STORAGE_KEY);
+        return serverValidation;
+      }
 
-      // For now, accept any properly formatted 25-character hex key as valid
-      // In production, you would validate against your license database
-      return {
-        valid: true,
-        info: {
-          licenseKey,
-          productId: this.PRODUCT_ID,
-          customerEmail: 'demo@aogtech.com', // This would come from your license database
-          customerName: 'Demo Customer',     // This would come from your license database
-          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-          maxActivations: 1,
-          features: ['all']
-        }
-      };
+      return serverValidation;
     } catch (error) {
       console.error('License validation error:', error);
       return { valid: false, error: 'Failed to validate license key' };
@@ -164,10 +265,10 @@ export class LicenseService {
    * Activate license on this machine
    */
   static async activateLicense(licenseKey: string): Promise<{ success: boolean; error?: string }> {
-    const validation = this.validateLicenseKey(licenseKey);
+    const validation = await this.validateLicenseKey(licenseKey);
     
     if (!validation.valid) {
-      return { success: false, error: validation.error };
+      return { success: false, error: validation.error || validation.reason };
     }
 
     try {
@@ -179,8 +280,21 @@ export class LicenseService {
         try {
           const storedData = JSON.parse(stored);
           if (storedData.machineId === machineId && storedData.licenseKey === licenseKey) {
-            // Already activated on this machine with this key
-            return { success: true };
+            // Revalidate against server to ensure it's still active
+            const revalidation = await this.validateLicenseKey(licenseKey);
+            if (revalidation.valid) {
+              // Update last checked timestamp
+              const updatedData = {
+                ...storedData,
+                lastChecked: new Date().toISOString()
+              };
+              localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedData));
+              return { success: true };
+            } else {
+              // License is no longer valid on server, clear local storage
+              localStorage.removeItem(this.STORAGE_KEY);
+              return { success: false, error: revalidation.reason || 'License is no longer valid' };
+            }
           }
         } catch {
           // Invalid stored data, continue with new activation
@@ -192,7 +306,8 @@ export class LicenseService {
         ...validation.info,
         machineId,
         activatedAt: new Date().toISOString(),
-        isValid: true
+        isValid: true,
+        lastChecked: new Date().toISOString()
       };
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(activationData));
@@ -218,12 +333,81 @@ export class LicenseService {
       // Verify machine ID matches
       if (data.machineId !== machineId) {
         console.warn('License machine ID mismatch');
+        localStorage.removeItem(this.STORAGE_KEY);
         return false;
       }
 
-      // Verify license is still valid
-      const validation = this.validateLicenseKey(data.licenseKey);
-      return validation.valid;
+      // Check cache first to avoid excessive API calls
+      const now = Date.now();
+      if (this.lastLicenseCheck && 
+          (now - this.lastLicenseCheck.timestamp) < LICENSE_CONFIG.CACHE_DURATION) {
+        return this.lastLicenseCheck.result;
+      }
+
+      // Try to validate against server
+      try {
+        const validation = await this.validateLicenseKey(data.licenseKey);
+        const isValid = validation.valid;
+
+        // Update cache
+        this.lastLicenseCheck = {
+          timestamp: now,
+          result: isValid
+        };
+
+        if (isValid) {
+          // Update stored data with latest info from server
+          if (validation.info) {
+            const updatedData = {
+              ...data,
+              ...validation.info,
+              lastChecked: new Date().toISOString()
+            };
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedData));
+          }
+          return true;
+        } else {
+          // Server says license is invalid - clear local storage only if not in offline mode
+          if (!LICENSE_CONFIG.ALLOW_OFFLINE_MODE) {
+            localStorage.removeItem(this.STORAGE_KEY);
+          }
+          console.warn('License validation failed:', validation.reason || validation.error);
+          return false;
+        }
+      } catch (networkError) {
+        // Network error occurred - check if we can operate in offline mode
+        console.warn('Network error during license validation:', networkError);
+        
+        if (LICENSE_CONFIG.ALLOW_OFFLINE_MODE) {
+          // Validate cached license data for offline operation
+          const licenseInfo = this.getLicenseInfo();
+          if (licenseInfo && licenseInfo.activatedAt && licenseInfo.expiryDate) {
+            const timeSinceActivation = Date.now() - licenseInfo.activatedAt.getTime();
+            const timeSinceLastCheck = licenseInfo.lastChecked ? Date.now() - new Date(licenseInfo.lastChecked).getTime() : 0;
+            const isNotExpired = licenseInfo.expiryDate.getTime() > Date.now();
+            
+            // Allow offline operation if license meets offline criteria
+            if (isNotExpired && 
+                (timeSinceActivation < LICENSE_CONFIG.OFFLINE_GRACE_PERIOD || 
+                 timeSinceLastCheck < LICENSE_CONFIG.OFFLINE_GRACE_PERIOD)) {
+              console.log('Operating in offline mode - cached license is valid');
+              
+              // Update cache to indicate offline validation
+              this.lastLicenseCheck = {
+                timestamp: now,
+                result: true
+              };
+              
+              return true;
+            } else {
+              console.warn('Cached license does not meet offline criteria (expired or grace period exceeded)');
+            }
+          }
+        }
+        
+        // Network error and no valid offline license
+        return false;
+      }
     } catch (error) {
       console.error('License check error:', error);
       return false;
@@ -240,16 +424,11 @@ export class LicenseService {
 
       const data = JSON.parse(stored);
       
-      // Validate the stored license
-      const validation = this.validateLicenseKey(data.licenseKey);
-      if (!validation.valid) {
-        return null;
-      }
-
       return {
         ...data,
         expiryDate: new Date(data.expiryDate),
-        activatedAt: data.activatedAt ? new Date(data.activatedAt) : undefined
+        activatedAt: data.activatedAt ? new Date(data.activatedAt) : undefined,
+        suspendedAt: data.suspendedAt ? new Date(data.suspendedAt) : undefined
       };
     } catch (error) {
       console.error('Failed to get license info:', error);
@@ -262,6 +441,7 @@ export class LicenseService {
    */
   static deactivateLicense(): void {
     localStorage.removeItem(this.STORAGE_KEY);
+    this.lastLicenseCheck = null;
   }
 
   /**
@@ -303,5 +483,73 @@ export class LicenseService {
   static formatLicenseKey(key: string): string {
     const clean = key.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     return clean.replace(/(.{5})/g, '$1-').slice(0, -1);
+  }
+
+  /**
+   * Force refresh license from server (clears cache)
+   */
+  static async refreshLicense(): Promise<boolean> {
+    this.lastLicenseCheck = null;
+    return await this.isLicensed();
+  }
+
+  /**
+   * Get license status information
+   */
+  static getLicenseStatus(): { 
+    isValid: boolean; 
+    status?: string; 
+    suspendedReason?: string; 
+    expiryDays?: number;
+    isOfflineMode?: boolean;
+    offlineInfo?: {
+      timeSinceActivation: number;
+      timeSinceLastCheck: number;
+      gracePeriodRemaining: number;
+    };
+  } {
+    const licenseInfo = this.getLicenseInfo();
+    if (!licenseInfo) {
+      return { isValid: false };
+    }
+
+    const expiryDays = this.getDaysUntilExpiry();
+    const now = Date.now();
+    
+    // Calculate offline information
+    let isOfflineMode = false;
+    let offlineInfo = undefined;
+    
+    if (LICENSE_CONFIG.ALLOW_OFFLINE_MODE && licenseInfo.activatedAt) {
+      const timeSinceActivation = now - licenseInfo.activatedAt.getTime();
+      const timeSinceLastCheck = licenseInfo.lastChecked ? now - new Date(licenseInfo.lastChecked).getTime() : timeSinceActivation;
+      const gracePeriodRemaining = LICENSE_CONFIG.OFFLINE_GRACE_PERIOD - Math.min(timeSinceActivation, timeSinceLastCheck);
+      
+      // Consider it offline mode if we haven't checked recently and grace period is still valid
+      isOfflineMode = timeSinceLastCheck > LICENSE_CONFIG.CACHE_DURATION && gracePeriodRemaining > 0;
+      
+      offlineInfo = {
+        timeSinceActivation,
+        timeSinceLastCheck,
+        gracePeriodRemaining: Math.max(0, gracePeriodRemaining)
+      };
+    }
+
+    return {
+      isValid: licenseInfo.isValid !== false,
+      status: licenseInfo.status,
+      suspendedReason: licenseInfo.suspendedReason,
+      expiryDays: expiryDays !== null ? expiryDays : undefined,
+      isOfflineMode,
+      offlineInfo
+    };
+  }
+
+  /**
+   * Check if the application is currently operating in offline mode
+   */
+  static isInOfflineMode(): boolean {
+    const status = this.getLicenseStatus();
+    return status.isOfflineMode || false;
   }
 } 

@@ -23,6 +23,9 @@ export interface ElectronAPI {
 
   // License management
   getMachineId: () => Promise<string>;
+
+  // IPC communication for license scheduler
+  sendToMain: (channel: string, data: any) => void;
 }
 
 export interface NodeAPI {

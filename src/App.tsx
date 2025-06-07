@@ -13,7 +13,9 @@ import { useStore } from './store/useStore';
 import { initializeDatabase, MigrationService } from './database';
 import { createAdmin123User } from './utils/createAdminUser';
 import { LicenseService } from './services/LicenseService';
+import { LICENSE_CONFIG } from './config/license';
 import { RefreshCw, AlertTriangle, RotateCcw } from 'lucide-react';
+import { LicenseScheduler } from './services/LicenseScheduler';
 
 // Component for role-based route protection
 const ProtectedRoute: React.FC<{ 
@@ -49,6 +51,7 @@ const App: React.FC = () => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isLicensed, setIsLicensed] = useState(false);
   const [checkingLicense, setCheckingLicense] = useState(true);
+  const [licenseCheckInterval, setLicenseCheckInterval] = useState<NodeJS.Timeout | null>(null);
   const { auth, initializeFromDatabase } = useStore();
 
   // Wait for Zustand persist hydration
@@ -65,39 +68,76 @@ const App: React.FC = () => {
     return unsubscribe;
   }, []);
 
+  // Function to check license status
+  const checkLicense = async (showLoading = true) => {
+    try {
+      if (showLoading) setCheckingLicense(true);
+      const licensed = await LicenseService.isLicensed();
+      setIsLicensed(licensed);
+      
+      if (licensed) {
+        console.log('License validated successfully');
+        // Show license expiry warning if needed
+        if (LicenseService.isExpiringSoon()) {
+          const daysLeft = LicenseService.getDaysUntilExpiry();
+          console.warn(`License expires in ${daysLeft} days`);
+        }
+      } else {
+        console.log('No valid license found');
+        // Clear license interval if license is invalid
+        if (licenseCheckInterval) {
+          clearInterval(licenseCheckInterval);
+          setLicenseCheckInterval(null);
+        }
+      }
+      
+      return licensed;
+    } catch (error) {
+      console.error('License check failed:', error);
+      setIsLicensed(false);
+      return false;
+    } finally {
+      if (showLoading) setCheckingLicense(false);
+    }
+  };
+
   // Check license on app start
   useEffect(() => {
-    const checkLicense = async () => {
-      try {
-        setCheckingLicense(true);
-        const licensed = await LicenseService.isLicensed();
-        setIsLicensed(licensed);
-        
-        if (licensed) {
-          console.log('License validated successfully');
-          // Show license expiry warning if needed
-          if (LicenseService.isExpiringSoon()) {
-            const daysLeft = LicenseService.getDaysUntilExpiry();
-            console.warn(`License expires in ${daysLeft} days`);
-          }
-        } else {
-          console.log('No valid license found');
-        }
-      } catch (error) {
-        console.error('License check failed:', error);
-        setIsLicensed(false);
-      } finally {
-        setCheckingLicense(false);
-      }
-    };
-
     if (isHydrated) {
       checkLicense();
     }
   }, [isHydrated]);
 
+  // Set up periodic license checking
+  useEffect(() => {
+    if (isLicensed && !licenseCheckInterval) {
+      // Check license periodically using configured interval
+      const interval = setInterval(() => {
+        checkLicense(false).then(licensed => {
+          if (!licensed) {
+            console.warn('License check failed during periodic validation');
+          }
+        });
+      }, LICENSE_CONFIG.CHECK_INTERVAL);
+      
+      setLicenseCheckInterval(interval);
+    }
+
+    // Cleanup interval when component unmounts or license becomes invalid
+    return () => {
+      if (licenseCheckInterval) {
+        clearInterval(licenseCheckInterval);
+      }
+    };
+  }, [isLicensed]);
+
   const handleLicenseActivated = () => {
     setIsLicensed(true);
+    // Restart periodic license checking
+    if (licenseCheckInterval) {
+      clearInterval(licenseCheckInterval);
+    }
+    checkLicense(false);
   };
 
   const initializeApp = async () => {
@@ -178,6 +218,19 @@ const App: React.FC = () => {
       setInitError('Failed to reset migration. Please try the database reset option.');
     }
   };
+
+  // Initialize License Scheduler after app is hydrated
+  useEffect(() => {
+    if (isHydrated) {
+      // Initialize the monthly license scheduler
+      LicenseScheduler.initialize();
+
+      // Cleanup on unmount
+      return () => {
+        LicenseScheduler.cleanup();
+      };
+    }
+  }, [isHydrated]);
 
   // Show loading screen during initialization, hydration, or license checking
   if (isInitializing || !isHydrated || checkingLicense) {
