@@ -7,13 +7,14 @@ import {
   Trash2, 
   Check,
   Receipt,
-  Scan
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Product, Transaction, TransactionItem } from '../types';
 import { format } from 'date-fns';
-import BarcodeScanner from '../components/BarcodeScanner/BarcodeScanner';
 import { formatCurrency } from '../utils/currency';
+import { useElectronFileOps } from '../hooks/useElectron';
 
 const Sales: React.FC = () => {
   // Debug: Log component initialization
@@ -32,6 +33,8 @@ const Sales: React.FC = () => {
     settings
   } = useStore();
 
+  const { showNotification } = useElectronFileOps();
+
   // Debug: Log store data
   console.log('Sales - Store data:', {
     productsCount: products?.length || 0,
@@ -45,8 +48,101 @@ const Sales: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = React.useState(0);
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
   const [showReceiptModal, setShowReceiptModal] = React.useState(false);
-  const [showBarcodeScanner, setShowBarcodeScanner] = React.useState(false);
   const [lastTransaction, setLastTransaction] = React.useState<Transaction | null>(null);
+  const [notification, setNotification] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Ref for auto-focusing the search input
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Auto-focus search input on component mount
+  React.useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  // Auto-hide notifications
+  React.useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  // Enhanced barcode scanning on search input
+  React.useEffect(() => {
+    let rapidInputBuffer = '';
+    let rapidInputTimeout: NodeJS.Timeout;
+    
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Only process if search input is focused
+      if (document.activeElement !== searchInputRef.current) return;
+      
+      // Clear existing timeout
+      if (rapidInputTimeout) clearTimeout(rapidInputTimeout);
+      
+      if (event.key === 'Enter') {
+        // Check if we have rapid input buffer (typical of barcode scanners)
+        if (rapidInputBuffer.length >= 3) {
+          event.preventDefault();
+          handleBarcodeInput(rapidInputBuffer);
+          rapidInputBuffer = '';
+          setSearchTerm(''); // Clear the search term after processing
+        }
+      } else if (event.key.length === 1 && /[A-Za-z0-9\-_\.]/.test(event.key)) {
+        // Add character to rapid input buffer
+        rapidInputBuffer += event.key;
+        
+        // Auto-submit for rapid input (barcode scanners type very fast)
+        rapidInputTimeout = setTimeout(() => {
+          if (rapidInputBuffer.length >= 3) {
+            handleBarcodeInput(rapidInputBuffer);
+            rapidInputBuffer = '';
+            setSearchTerm(''); // Clear the search term after processing
+          }
+        }, 100); // Very short timeout for rapid input detection
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+      if (rapidInputTimeout) clearTimeout(rapidInputTimeout);
+    };
+  }, []);
+
+  const handleBarcodeInput = (code: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    if (cleanCode.length >= 3) {
+      handleBarcodeScanned(cleanCode);
+    }
+  };
+
+  const showToastNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    
+    // Show system notification if available
+    if (type === 'success') {
+      try {
+        showNotification('Product Added', message);
+      } catch (error) {
+        // Fallback to browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Product Added', { body: message });
+        }
+      }
+    }
+    
+    // Optional: Play sound for feedback
+    try {
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LPdSEFl');
+      audio.volume = 0.3;
+      audio.play().catch(() => {}); // Ignore errors if audio fails
+    } catch (error) {
+      // Audio not supported or failed, that's okay
+    }
+  };
 
   // Early return with debug info if no data
   if (!products || !categories || !cart) {
@@ -110,17 +206,25 @@ const Sales: React.FC = () => {
     
     if (foundProduct) {
       if (foundProduct.isActive && foundProduct.quantity > 0) {
+        // Check if product is already in cart
+        const existingCartItem = cart.items.find(item => item.product.id === foundProduct.id);
+        
         handleAddToCart(foundProduct);
-        // Optional: Show success message
-        console.log(`Added ${foundProduct.name} to cart via barcode scan`);
+        
+        // Show success feedback with quantity info
+        const message = existingCartItem 
+          ? `${foundProduct.name} quantity increased to ${existingCartItem.quantity + 1}`
+          : `${foundProduct.name} added to cart`;
+        
+        showToastNotification('success', message);
       } else {
-        alert(`Product "${foundProduct.name}" is not available for sale.`);
+        const errorMessage = `Product "${foundProduct.name}" is not available for sale.`;
+        showToastNotification('error', errorMessage);
       }
     } else {
-      alert(`Product with SKU "${sku}" not found in inventory.`);
+      const errorMessage = `Product with SKU "${sku}" not found in inventory.`;
+      showToastNotification('error', errorMessage);
     }
-    
-    setShowBarcodeScanner(false);
   };
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
@@ -191,25 +295,34 @@ const Sales: React.FC = () => {
       <div className="flex-1 flex flex-col">
         {/* Search and Filters */}
         <div className="p-4 bg-white border-b border-gray-200">
+          {/* Toast Notification */}
+          {notification && (
+            <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+              notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`}>
+              <div className="flex items-center">
+                {notification.type === 'success' ? (
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                ) : (
+                  <XCircle className="h-5 w-5 mr-2" />
+                )}
+                {notification.message}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name or SKU..."
+                placeholder="Search by name or SKU... (Auto-scans barcodes)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input pl-10"
+                ref={searchInputRef}
               />
             </div>
-            <button
-              onClick={() => setShowBarcodeScanner(true)}
-              className="btn btn-primary flex items-center"
-              title="Scan Barcode"
-            >
-              <Scan className="h-4 w-4 mr-2" />
-              Scan
-            </button>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -222,6 +335,10 @@ const Sales: React.FC = () => {
                 </option>
               ))}
             </select>
+          </div>
+          
+          <div className="mt-2 text-xs text-gray-500">
+            💡 Tip: Focus the search field and scan any barcode to automatically add products to cart
           </div>
         </div>
 
@@ -537,13 +654,6 @@ const Sales: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Barcode Scanner Modal */}
-      <BarcodeScanner
-        isOpen={showBarcodeScanner}
-        onClose={() => setShowBarcodeScanner(false)}
-        onScan={handleBarcodeScanned}
-      />
     </div>
   );
 };

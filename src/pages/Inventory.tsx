@@ -23,6 +23,7 @@ import { useStore } from '../store/useStore';
 import { Product, ProductFormData, Category } from '../types';
 import { useForm } from 'react-hook-form';
 import BarcodeScanner from '../components/BarcodeScanner/BarcodeScanner';
+import StockAdjustment from '../components/BarcodeScanner/StockAdjustment';
 import { formatCurrency } from '../utils/currency';
 
 interface CategoryFormData {
@@ -48,6 +49,7 @@ const Inventory: React.FC = () => {
   const [showModal, setShowModal] = React.useState(false);
   const [showCategoryModal, setShowCategoryModal] = React.useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = React.useState(false);
+  const [showStockAdjustment, setShowStockAdjustment] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = React.useState<Category | null>(null);
   const [sortField, setSortField] = React.useState<'name' | 'price' | 'quantity' | 'category'>('name');
@@ -492,6 +494,13 @@ const Inventory: React.FC = () => {
           {canEdit && (
             <>
               <button 
+                onClick={() => setShowStockAdjustment(true)}
+                className="btn btn-outline bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Stock Adjustment
+              </button>
+              <button 
                 onClick={() => openCategoryModal()}
                 className="btn btn-outline"
               >
@@ -568,7 +577,7 @@ const Inventory: React.FC = () => {
                 <button
                   onClick={() => setShowBarcodeScanner(true)}
                   className="btn btn-outline flex items-center"
-                  title="Scan SKU"
+                  title="Scan SKU to find product"
                 >
                   <Scan className="h-4 w-4 mr-2" />
                   Scan SKU
@@ -1373,6 +1382,15 @@ const Inventory: React.FC = () => {
         isOpen={showBarcodeScanner}
         onClose={() => setShowBarcodeScanner(false)}
         onScan={handleBarcodeScanned}
+        mode="inventory"
+        title="Scan Product for Inventory"
+        placeholder="Scan product barcode to find or create..."
+      />
+
+      {/* Stock Adjustment Modal */}
+      <StockAdjustment
+        isOpen={showStockAdjustment}
+        onClose={() => setShowStockAdjustment(false)}
       />
     </div>
   );
