@@ -50,6 +50,7 @@ const Sales: React.FC = () => {
   const [showReceiptModal, setShowReceiptModal] = React.useState(false);
   const [lastTransaction, setLastTransaction] = React.useState<Transaction | null>(null);
   const [notification, setNotification] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [scanningActive, setScanningActive] = React.useState(true);
 
   // Ref for auto-focusing the search input
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -61,6 +62,11 @@ const Sales: React.FC = () => {
     }
   }, []);
 
+  // Update scanning status based on modal states
+  React.useEffect(() => {
+    setScanningActive(!showPaymentModal && !showReceiptModal);
+  }, [showPaymentModal, showReceiptModal]);
+
   // Auto-hide notifications
   React.useEffect(() => {
     if (notification) {
@@ -69,14 +75,44 @@ const Sales: React.FC = () => {
     }
   }, [notification]);
 
-  // Enhanced barcode scanning on search input
+  // Enhanced barcode scanning - works globally on the sales page
   React.useEffect(() => {
     let rapidInputBuffer = '';
     let rapidInputTimeout: NodeJS.Timeout;
     
     const handleKeyPress = (event: KeyboardEvent) => {
-      // Only process if search input is focused
-      if (document.activeElement !== searchInputRef.current) return;
+      // Skip if user is typing in input fields or modals are open
+      const activeElement = document.activeElement;
+      const isInInputField = activeElement?.tagName === 'INPUT' || 
+                           activeElement?.tagName === 'TEXTAREA' || 
+                           activeElement?.tagName === 'SELECT';
+      
+      // Skip if payment or receipt modals are open
+      if (showPaymentModal || showReceiptModal) return;
+      
+      // If user is typing in search input, let it work normally for manual search
+      if (isInInputField && activeElement === searchInputRef.current) {
+        // Allow normal typing in search input, but still detect rapid barcode input
+        if (event.key.length === 1 && /[A-Za-z0-9\-_\.]/.test(event.key)) {
+          rapidInputBuffer += event.key;
+          
+          // Auto-submit for very rapid input (barcode scanners)
+          if (rapidInputTimeout) clearTimeout(rapidInputTimeout);
+          rapidInputTimeout = setTimeout(() => {
+            if (rapidInputBuffer.length >= 8) { // Longer threshold when in search input
+              handleBarcodeInput(rapidInputBuffer);
+              rapidInputBuffer = '';
+              setSearchTerm(''); // Clear the search term after processing
+            } else {
+              rapidInputBuffer = ''; // Reset if not a barcode
+            }
+          }, 150);
+        }
+        return;
+      }
+      
+      // Skip if typing in other input fields
+      if (isInInputField) return;
       
       // Clear existing timeout
       if (rapidInputTimeout) clearTimeout(rapidInputTimeout);
@@ -87,7 +123,6 @@ const Sales: React.FC = () => {
           event.preventDefault();
           handleBarcodeInput(rapidInputBuffer);
           rapidInputBuffer = '';
-          setSearchTerm(''); // Clear the search term after processing
         }
       } else if (event.key.length === 1 && /[A-Za-z0-9\-_\.]/.test(event.key)) {
         // Add character to rapid input buffer
@@ -98,19 +133,22 @@ const Sales: React.FC = () => {
           if (rapidInputBuffer.length >= 3) {
             handleBarcodeInput(rapidInputBuffer);
             rapidInputBuffer = '';
-            setSearchTerm(''); // Clear the search term after processing
           }
         }, 100); // Very short timeout for rapid input detection
+      } else if (event.key === 'Escape') {
+        // Clear buffer on escape
+        rapidInputBuffer = '';
       }
     };
 
+    // Add global event listener
     document.addEventListener('keydown', handleKeyPress);
     
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
       if (rapidInputTimeout) clearTimeout(rapidInputTimeout);
     };
-  }, []);
+  }, [showPaymentModal, showReceiptModal]); // Add dependencies for modal states
 
   const handleBarcodeInput = (code: string) => {
     const cleanCode = code.trim().toUpperCase();
@@ -316,7 +354,7 @@ const Sales: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name or SKU... (Auto-scans barcodes)"
+                placeholder="Search by name or SKU... (Barcodes auto-scan anywhere on this page)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input pl-10"
@@ -337,8 +375,16 @@ const Sales: React.FC = () => {
             </select>
           </div>
           
-          <div className="mt-2 text-xs text-gray-500">
-            💡 Tip: Focus the search field and scan any barcode to automatically add products to cart
+          <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+            <div className="flex items-center">
+              <div className={`w-2 h-2 rounded-full mr-2 ${scanningActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              <span className={scanningActive ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                {scanningActive ? '🔥 Ready for barcode scanning - just scan anywhere on this page!' : '⏸️ Scanning paused (modal open)'}
+              </span>
+            </div>
+            <div className="text-xs text-gray-400">
+              Press ESC to clear scan buffer
+            </div>
           </div>
         </div>
 
