@@ -234,7 +234,7 @@ const QuickSale: React.FC<QuickSaleProps> = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 <div className="max-h-48 overflow-y-auto">
-                  {cart.items.map((item, index) => (
+                  {cart.items.map((item, _) => (
                     <div key={item.product.id} className="p-3 border-b border-gray-100 last:border-b-0">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">

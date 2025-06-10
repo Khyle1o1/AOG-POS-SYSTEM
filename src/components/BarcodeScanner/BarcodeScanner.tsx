@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scan, X, Package, ShoppingCart, Edit, Plus, Minus } from 'lucide-react';
+import { Scan, X, Package, ShoppingCart, Edit, Plus } from 'lucide-react';
 
 export type ScannerMode = 'sale' | 'inventory' | 'stock-adjustment' | 'quick-sale';
 

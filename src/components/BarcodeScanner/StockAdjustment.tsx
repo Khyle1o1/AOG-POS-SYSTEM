@@ -1,6 +1,6 @@
 import React from 'react';
-import { Package, Plus, Minus, Save, X, History, RefreshCw } from 'lucide-react';
-import BarcodeScanner, { ScannerMode } from './BarcodeScanner';
+import { Package, Plus, Save, X, RefreshCw } from 'lucide-react';
+import BarcodeScanner from './BarcodeScanner';
 import { useStore } from '../../store/useStore';
 import { Product } from '../../types';
 
@@ -18,7 +18,7 @@ interface StockAdjustmentProps {
 }
 
 const StockAdjustment: React.FC<StockAdjustmentProps> = ({ isOpen, onClose }) => {
-  const { products, updateStock, auth } = useStore();
+  const { products, updateStock } = useStore();
   const [showScanner, setShowScanner] = React.useState(false);
   const [adjustments, setAdjustments] = React.useState<StockAdjustmentEntry[]>([]);
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
