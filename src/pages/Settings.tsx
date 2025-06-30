@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import { useForm } from 'react-hook-form';
 import { DatabaseService } from '../database/services';
 import { LicenseService, LicenseInfo } from '../services/LicenseService';
+import PrinterSettings from '../components/Settings/PrinterSettings';
 
 interface SettingsFormData {
   storeName: string;
@@ -231,6 +232,9 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Printer Settings */}
+      <PrinterSettings />
 
       {/* License Information */}
       <div className="card">

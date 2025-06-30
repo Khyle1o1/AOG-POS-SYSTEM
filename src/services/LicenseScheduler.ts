@@ -178,12 +178,6 @@ export class LicenseScheduler {
         this.state.missedChecks = 0; // Reset missed checks on successful validation
         this.saveState();
         
-        // Notify main process if running in Electron
-        this.notifyElectronProcess('monthly-license-check-success', {
-          timestamp,
-          licenseValid: true
-        });
-
         return {
           success: true,
           timestamp,
@@ -194,13 +188,6 @@ export class LicenseScheduler {
         this.state.missedChecks++;
         this.saveState();
         
-        // Notify main process if running in Electron
-        this.notifyElectronProcess('monthly-license-check-failed', {
-          timestamp,
-          licenseValid: false,
-          reason: 'License validation failed'
-        });
-
         return {
           success: false,
           timestamp,
@@ -261,15 +248,6 @@ export class LicenseScheduler {
       } catch (fallbackError) {
         return false;
       }
-    }
-  }
-
-  /**
-   * Notify Electron main process of license events
-   */
-  private static notifyElectronProcess(event: string, data: any): void {
-    if (window.electronAPI?.sendToMain) {
-      window.electronAPI.sendToMain(event, data);
     }
   }
 

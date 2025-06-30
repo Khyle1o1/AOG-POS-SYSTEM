@@ -272,4 +272,59 @@ export interface AppSettings {
   backupFrequency: 'daily' | 'weekly' | 'monthly';
   lowStockAlert: boolean;
   lowStockThreshold: number;
+  // Printer settings
+  printerSettings: PrinterSettings;
+}
+
+// Bluetooth Printer Types
+export interface PrinterSettings {
+  selectedPrinterId?: string;
+  selectedPrinterName?: string;
+  autoPrintEnabled: boolean;
+  paperWidth: 58 | 80; // mm
+  encoding: 'cp437' | 'utf8';
+  cutType: 'full' | 'partial' | 'none';
+  cashdrawerEnabled: boolean;
+}
+
+export interface BluetoothPrinter {
+  id: string;
+  name: string;
+  device?: BluetoothDevice;
+  connected: boolean;
+  lastConnected?: Date;
+}
+
+export interface PrinterStatus {
+  connected: boolean;
+  printing: boolean;
+  error?: string;
+  batteryLevel?: number;
+  paperStatus?: 'ok' | 'low' | 'empty';
+}
+
+export interface ReceiptData {
+  transaction: Transaction;
+  storeName: string;
+  storeAddress?: string;
+  storePhone?: string;
+  cashierName: string;
+  printTime: Date;
+}
+
+// ESC/POS Command Types
+export interface ESCPOSCommand {
+  type: 'text' | 'image' | 'cut' | 'drawer' | 'feed' | 'align' | 'size' | 'bold' | 'underline';
+  data?: string | Uint8Array;
+  align?: 'left' | 'center' | 'right';
+  size?: 'normal' | 'wide' | 'tall' | 'double';
+}
+
+export interface PrintJob {
+  id: string;
+  commands: ESCPOSCommand[];
+  status: 'pending' | 'printing' | 'completed' | 'failed';
+  createdAt: Date;
+  completedAt?: Date;
+  error?: string;
 } 

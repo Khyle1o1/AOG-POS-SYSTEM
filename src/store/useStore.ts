@@ -8,7 +8,10 @@ import {
   Cart, 
   CartItem, 
   AuthState,
-  ActivityLog 
+  ActivityLog,
+  PrinterSettings,
+  BluetoothPrinter,
+  PrinterStatus 
 } from '@/types';
 import {
   UserService,
@@ -81,9 +84,23 @@ interface StoreState {
   settings: {
     currency: string;
     storeName: string;
+    printerSettings: PrinterSettings;
   };
   loadSettings: () => Promise<void>;
   updateSettings: (settings: Partial<StoreState['settings']>) => Promise<void>;
+
+  // Bluetooth Printer Management
+  printerStatus: PrinterStatus;
+  availablePrinters: BluetoothPrinter[];
+  connectedPrinter: BluetoothPrinter | null;
+  setPrinterStatus: (status: PrinterStatus) => void;
+  setAvailablePrinters: (printers: BluetoothPrinter[]) => void;
+  setConnectedPrinter: (printer: BluetoothPrinter | null) => void;
+  scanForPrinters: () => Promise<BluetoothPrinter[]>;
+  connectToPrinter: (printer: BluetoothPrinter) => Promise<void>;
+  disconnectPrinter: () => Promise<void>;
+  testPrint: () => Promise<void>;
+  updatePrinterSettings: (settings: Partial<PrinterSettings>) => Promise<void>;
 
   // Initialize all data from database
   initializeFromDatabase: () => Promise<void>;
@@ -612,17 +629,20 @@ export const useStore = create<StoreState>()(
       settings: {
         currency: 'PHP',
         storeName: 'My Store',
+        printerSettings: {
+          autoPrintEnabled: false,
+          paperWidth: 58,
+          encoding: 'utf8',
+          cutType: 'partial',
+          cashdrawerEnabled: false
+        }
       },
 
       loadSettings: async () => {
         try {
           const dbSettings = await SettingsService.getOrCreate();
-          set({
-            settings: {
-              currency: dbSettings.currency,
-              storeName: dbSettings.storeName,
-            }
-          });
+          const appSettings = SettingsService.dbToAppFormat(dbSettings);
+          set({ settings: appSettings });
         } catch (error) {
           console.error('Failed to load settings:', error);
           set({ error: 'Failed to load settings' });
@@ -631,10 +651,96 @@ export const useStore = create<StoreState>()(
 
       updateSettings: async (newSettings) => {
         try {
-          await SettingsService.update(newSettings);
+          const dbUpdates = SettingsService.appToDbFormat(newSettings);
+          await SettingsService.update(dbUpdates);
           await get().loadSettings(); // Refresh from database
         } catch (error) {
           console.error('Failed to update settings:', error);
+          throw error;
+        }
+      },
+
+      // Bluetooth Printer Management
+      printerStatus: {
+        connected: false,
+        printing: false
+      },
+      availablePrinters: [],
+      connectedPrinter: null,
+      
+      setPrinterStatus: (status) => set({ printerStatus: status }),
+      setAvailablePrinters: (printers) => set({ availablePrinters: printers }),
+      setConnectedPrinter: (printer) => set({ connectedPrinter: printer }),
+      
+      scanForPrinters: async () => {
+        try {
+          const { BluetoothPrinterService } = await import('../services/BluetoothPrinterService');
+          const printerService = BluetoothPrinterService.getInstance();
+          const printers = await printerService.scanForPrinters();
+          get().setAvailablePrinters(printers);
+          return printers;
+        } catch (error) {
+          console.error('Failed to scan for printers:', error);
+          throw error;
+        }
+      },
+      
+      connectToPrinter: async (printer) => {
+        try {
+          const { BluetoothPrinterService } = await import('../services/BluetoothPrinterService');
+          const printerService = BluetoothPrinterService.getInstance();
+          
+          // Subscribe to status updates
+          printerService.onStatusChange((status) => {
+            get().setPrinterStatus(status);
+          });
+          
+          await printerService.connectToPrinter(printer);
+          get().setConnectedPrinter(printer);
+          
+          // Save printer selection
+          await get().updatePrinterSettings({
+            selectedPrinterId: printer.id,
+            selectedPrinterName: printer.name
+          });
+        } catch (error) {
+          console.error('Failed to connect to printer:', error);
+          throw error;
+        }
+      },
+      
+      disconnectPrinter: async () => {
+        try {
+          const { BluetoothPrinterService } = await import('../services/BluetoothPrinterService');
+          const printerService = BluetoothPrinterService.getInstance();
+          await printerService.disconnect();
+          get().setConnectedPrinter(null);
+        } catch (error) {
+          console.error('Failed to disconnect printer:', error);
+          throw error;
+        }
+      },
+      
+      testPrint: async () => {
+        try {
+          const { BluetoothPrinterService } = await import('../services/BluetoothPrinterService');
+          const printerService = BluetoothPrinterService.getInstance();
+          await printerService.testPrint();
+        } catch (error) {
+          console.error('Test print failed:', error);
+          throw error;
+        }
+      },
+      
+      updatePrinterSettings: async (newSettings) => {
+        try {
+          const currentSettings = get().settings;
+          const updatedPrinterSettings = { ...currentSettings.printerSettings, ...newSettings };
+          await get().updateSettings({ 
+            printerSettings: updatedPrinterSettings 
+          });
+        } catch (error) {
+          console.error('Failed to update printer settings:', error);
           throw error;
         }
       },

@@ -317,6 +317,12 @@ export class SettingsService {
         backupFrequency: 'daily',
         lowStockAlert: true,
         lowStockThreshold: 5,
+        // Printer settings defaults
+        printerAutoPrintEnabled: false,
+        printerPaperWidth: 58,
+        printerEncoding: 'utf8',
+        printerCutType: 'partial',
+        printerCashdrawerEnabled: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -324,6 +330,50 @@ export class SettingsService {
       settings = defaultSettings;
     }
     return settings;
+  }
+
+  // Convert database settings to application format
+  static dbToAppFormat(dbSettings: DatabaseSettings) {
+    return {
+      currency: dbSettings.currency,
+      storeName: dbSettings.storeName,
+      printerSettings: {
+        selectedPrinterId: dbSettings.printerSelectedId,
+        selectedPrinterName: dbSettings.printerSelectedName,
+        autoPrintEnabled: dbSettings.printerAutoPrintEnabled,
+        paperWidth: dbSettings.printerPaperWidth,
+        encoding: dbSettings.printerEncoding,
+        cutType: dbSettings.printerCutType,
+        cashdrawerEnabled: dbSettings.printerCashdrawerEnabled
+      }
+    };
+  }
+
+  // Convert application settings to database format
+  static appToDbFormat(appSettings: any): Partial<DatabaseSettings> {
+    const dbUpdate: Partial<DatabaseSettings> = {};
+    
+    if (appSettings.currency !== undefined) {
+      dbUpdate.currency = appSettings.currency;
+    }
+    
+    if (appSettings.storeName !== undefined) {
+      dbUpdate.storeName = appSettings.storeName;
+    }
+    
+    if (appSettings.printerSettings) {
+      const ps = appSettings.printerSettings;
+      if (ps.selectedPrinterId !== undefined) dbUpdate.printerSelectedId = ps.selectedPrinterId;
+      if (ps.selectedPrinterName !== undefined) dbUpdate.printerSelectedName = ps.selectedPrinterName;
+      if (ps.autoPrintEnabled !== undefined) dbUpdate.printerAutoPrintEnabled = ps.autoPrintEnabled;
+      if (ps.paperWidth !== undefined) dbUpdate.printerPaperWidth = ps.paperWidth;
+      if (ps.encoding !== undefined) dbUpdate.printerEncoding = ps.encoding;
+      if (ps.cutType !== undefined) dbUpdate.printerCutType = ps.cutType;
+      if (ps.cashdrawerEnabled !== undefined) dbUpdate.printerCashdrawerEnabled = ps.cashdrawerEnabled;
+    }
+    
+    dbUpdate.updatedAt = new Date();
+    return dbUpdate;
   }
 }
 

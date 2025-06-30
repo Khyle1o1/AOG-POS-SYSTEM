@@ -213,6 +213,12 @@ export class MigrationService {
               backupFrequency: legacyData.settings.backupFrequency || 'daily',
               lowStockAlert: legacyData.settings.lowStockAlert !== undefined ? legacyData.settings.lowStockAlert : true,
               lowStockThreshold: legacyData.settings.lowStockThreshold || 5,
+              // Printer settings defaults
+              printerAutoPrintEnabled: false,
+              printerPaperWidth: 58,
+              printerEncoding: 'utf8',
+              printerCutType: 'partial',
+              printerCashdrawerEnabled: false,
               createdAt: new Date(),
               updatedAt: new Date(),
             };

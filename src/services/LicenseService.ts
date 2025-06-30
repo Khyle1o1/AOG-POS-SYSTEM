@@ -151,12 +151,7 @@ export class LicenseService {
    */
   private static async getMachineId(): Promise<string> {
     try {
-      // Try to get machine ID from Electron API first
-      if (window.electronAPI?.getMachineId) {
-        return await window.electronAPI.getMachineId();
-      }
-      
-      // Fallback to browser fingerprinting
+      // Browser fingerprinting approach
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (ctx) {
@@ -176,12 +171,23 @@ export class LicenseService {
           navigator.hardwareConcurrency?.toString() || '0'
         ].join('|');
         
-        // Create hash of fingerprint
-        return crypto.createHash('sha256').update(fingerprint).digest('hex').substring(0, 32);
+        // Create hash of fingerprint using Web Crypto API
+        const encoder = new TextEncoder();
+        const data = encoder.encode(fingerprint);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hash));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex.substring(0, 32);
       }
       
       // Ultimate fallback
-      return crypto.createHash('sha256').update(navigator.userAgent + navigator.platform).digest('hex').substring(0, 32);
+      const fallbackData = navigator.userAgent + navigator.platform;
+      const encoder = new TextEncoder();
+      const data = encoder.encode(fallbackData);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hash));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex.substring(0, 32);
     } catch (error) {
       console.error('Failed to get machine ID:', error);
       return 'FALLBACK-MACHINE-ID';

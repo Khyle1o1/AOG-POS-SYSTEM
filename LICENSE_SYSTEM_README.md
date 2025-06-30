@@ -1,255 +1,358 @@
-# POS System - Custom Licensing Implementation
-
-This document explains how to use the custom licensing system implemented for the AOG Tech POS System.
+# 🔐 POS System License Management
 
 ## Overview
 
-The licensing system provides:
-- **Hardware fingerprinting** - Licenses are tied to specific machines
-- **Cryptographic security** - License keys are digitally signed and tamper-proof
-- **Feature control** - Different license tiers with specific features
-- **Expiry management** - Time-based license validation
-- **Easy activation** - Simple activation process for end users
+The POS System includes a comprehensive license management system that ensures software integrity and proper usage authorization. This system provides both local validation and server-side verification capabilities.
 
-## 🔑 Features
+## Key Features
 
-### Security Features
-- HMAC-SHA256 digital signatures
-- Hardware-based machine fingerprinting
-- Tamper-proof license validation
-- Local storage with validation checks
+- **Hardware Fingerprinting**: Unique machine identification for license binding
+- **Server-Side Validation**: Secure license verification against central database
+- **Offline Grace Period**: Continued operation during temporary network outages
+- **Automatic Renewal**: Monthly license validation with grace periods
+- **License Suspension**: Administrative controls for license management
+- **Feature Gating**: Control access to premium features based on license type
 
-### Business Features
-- Multiple feature tiers (basic, advanced, multi-user, all)
-- Customizable expiry dates
-- License deactivation/reactivation
-- Expiry warnings (30 days before expiration)
+## Architecture
 
-## 📝 How to Generate License Keys
-
-### Using the Command Line Tool
-
-The `generate-license.cjs` script allows you to generate license keys for customers:
-
-```bash
-# Basic license for 1 year
-node generate-license.cjs -e customer@example.com -n "Customer Name"
-
-# Advanced license with specific features for 2 years
-node generate-license.cjs -e business@company.com -n "Business Customer" -d 730 -f "basic,advanced"
-
-# Full featured license
-node generate-license.cjs -e enterprise@corp.com -n "Enterprise Client" -d 365 -f "all"
+```
+License System Architecture
+├── Frontend (React/TypeScript)
+│   ├── License Validation
+│   ├── Machine Fingerprinting
+│   ├── Feature Access Control
+│   └── UI Components
+├── Backend (Node.js/Express)
+│   ├── License Database
+│   ├── Validation API
+│   ├── Admin Interface
+│   └── Analytics
+└── Security Layer
+    ├── Hardware Binding
+    ├── Encryption
+    └── Tamper Protection
 ```
 
-### Available Options
-
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-e, --email` | Customer email (required) | `-e customer@example.com` |
-| `-n, --name` | Customer name (required) | `-n "John Doe"` |
-| `-d, --days` | License validity in days (default: 365) | `-d 730` |
-| `-f, --features` | Comma-separated feature list | `-f "basic,advanced"` |
-| `-h, --help` | Show help information | `--help` |
-
-### Available Features
-
-- **basic**: Basic POS functionality (sales, inventory basics)
-- **advanced**: Advanced reporting and analytics
-- **multi-user**: Multiple user management
-- **all**: All features unlocked
-
-## 💻 Customer License Activation
-
-### For Customers
-
-1. **Launch the POS System** - The application will show the license activation screen
-2. **Enter License Key** - Type or paste the license key provided
-3. **Activate** - Click "Activate License" button
-4. **Success** - The system will validate and activate the license
-
-### License Key Format
-
-License keys follow the format: `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX`
-
-Example: `EYJKY-XRHIJ-P7IMV-TYWLS-IJOIZ`
-
-## 🔧 Implementation Details
-
-### File Structure
+## File Structure
 
 ```
 src/
 ├── services/
-│   └── LicenseService.ts          # Core licensing logic
+│   ├── LicenseService.ts         # Core license management
+│   └── LicenseScheduler.ts       # Automated validation
 ├── components/
-│   └── LicenseActivation.tsx      # Activation UI component
+│   ├── LicenseForm.tsx           # License activation UI
+│   ├── LicenseStatus.tsx         # License status display
+│   └── FeatureGate.tsx           # Feature access control
 ├── types/
-│   └── electron.d.ts              # Electron API types
-└── pages/
-    └── Settings.tsx               # License management in settings
-
-electron/
-├── main.cjs                       # Electron main process (includes machine ID)
-└── preload.cjs                    # Electron preload script
-
-generate-license.cjs               # License generation script
+│   └── license.ts                # License type definitions
+└── utils/
+    └── encryption.ts             # Security utilities
 ```
 
-### Core Components
+## Core Components
 
-#### LicenseService.ts
-- `generateLicenseKey()` - Creates cryptographically signed license keys
-- `validateLicenseKey()` - Validates license signature and expiry
-- `activateLicense()` - Activates license on current machine
-- `isLicensed()` - Checks if current installation is licensed
-- `getLicenseInfo()` - Retrieves current license information
-- `deactivateLicense()` - Removes license from current machine
+### 1. LicenseService
 
-#### LicenseActivation.tsx
-- Beautiful activation UI with real-time validation
-- Auto-formatting of license keys
-- Error handling and user feedback
-- Support contact integration
+The main service class handling all license operations:
 
-## 🔐 Security Considerations
-
-### Production Deployment
-
-**⚠️ IMPORTANT: Change the SECRET_KEY before production deployment!**
-
-1. **Update Secret Key** in both files:
-   ```typescript
-   // In src/services/LicenseService.ts
-   private static readonly SECRET_KEY = 'YOUR-UNIQUE-PRODUCTION-SECRET-KEY';
-   
-   // In generate-license.cjs
-   const SECRET_KEY = 'YOUR-UNIQUE-PRODUCTION-SECRET-KEY';
-   ```
-
-2. **Keep the secret key secure** - Store it in environment variables or secure configuration
-
-3. **Obfuscate the frontend code** (optional) - Use tools like `javascript-obfuscator` for additional protection
-
-### Hardware Fingerprinting
-
-The system uses multiple methods for machine identification:
-1. **Electron API** - `machineIdSync()` from `node-machine-id` package
-2. **Browser fingerprinting** - Canvas fingerprinting + system properties
-3. **Fallback** - Static identifier for edge cases
-
-## 📊 License Management
-
-### In the Application
-
-Users can manage their license through **Settings > License Information**:
-- View license details (customer, expiry, features)
-- See expiry warnings
-- Copy license key
-- Deactivate license (admin only)
-
-### For Administrators
-
-Generate licenses for customers:
-```bash
-# Generate a 1-year license with all features
-node generate-license.cjs -e customer@email.com -n "Customer Name" -f "all"
-
-# Generate a 30-day trial license
-node generate-license.cjs -e trial@email.com -n "Trial User" -d 30 -f "basic"
-
-# Generate enterprise license for 2 years
-node generate-license.cjs -e enterprise@company.com -n "Enterprise Corp" -d 730 -f "all"
+```typescript
+class LicenseService {
+  // Hardware fingerprinting
+  static async getMachineId(): Promise<string>
+  
+  // License validation
+  static async validateLicenseKey(key: string): Promise<LicenseValidation>
+  
+  // License activation
+  static async activateLicense(key: string): Promise<ActivationResult>
+  
+  // Status checking
+  static async isLicensed(): Promise<boolean>
+  
+  // Feature access
+  static hasFeature(feature: string): boolean
+}
 ```
 
-## 🎯 Usage Examples
+### 2. LicenseScheduler
 
-### Basic Business Workflow
+Automated background validation system:
 
-1. **Customer Purchase**
-   ```bash
-   node generate-license.cjs -e customer@business.com -n "Business Name" -d 365 -f "basic,advanced"
-   ```
-
-2. **Send License Key** - Email the generated key to customer
-
-3. **Customer Activation** - Customer enters key in POS system
-
-4. **License Management** - Customer can view license details in Settings
-
-### Trial License
-
-```bash
-# 30-day trial with basic features
-node generate-license.cjs -e trial@company.com -n "Trial Customer" -d 30 -f "basic"
+```typescript
+class LicenseScheduler {
+  // Initialize scheduler
+  static initialize(): void
+  
+  // Get current status
+  static getStatus(): SchedulerStatus
+  
+  // Manual validation
+  static async performCheck(): Promise<CheckResult>
+}
 ```
+
+## Machine Identification
+
+The system uses browser-based hardware fingerprinting for license binding:
+
+### Fingerprinting Methods
+
+1. **Canvas Fingerprinting** - Unique rendering characteristics
+2. **Browser Properties** - User agent, platform, screen resolution
+3. **Hardware Info** - CPU cores, timezone, language settings
+4. **Composite Hash** - SHA-256 hash of combined properties
+
+```typescript
+// Hardware fingerprinting implementation
+private static async getMachineId(): Promise<string> {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (ctx) {
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('Hardware fingerprint', 2, 2);
+    
+    const fingerprint = [
+      canvas.toDataURL(),
+      navigator.userAgent,
+      navigator.platform,
+      screen.width + 'x' + screen.height,
+      // ... other properties
+    ].join('|');
+    
+    // Create hash using Web Crypto API
+    const encoder = new TextEncoder();
+    const data = encoder.encode(fingerprint);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .substring(0, 32);
+  }
+}
+```
+
+## License Server Integration
+
+### API Endpoints
+
+```
+POST /api/licenses/validate    # Validate license key
+POST /api/licenses/activate    # Activate license
+POST /api/licenses/suspend     # Suspend license (admin)
+GET  /api/licenses/status      # Check license status
+GET  /api/health              # Server health check
+```
+
+### Environment Configuration
+
+```env
+REACT_APP_LICENSE_SERVER_URL=https://your-license-server.com
+REACT_APP_LICENSE_API_KEY=your-api-key
+REACT_APP_ENCRYPTION_KEY=your-encryption-key
+```
+
+## Security Features
+
+### 1. Hardware Binding
+- Licenses are bound to specific machine fingerprints
+- Transfer detection and prevention
+- Machine limit enforcement
+
+### 2. Server Validation
+- All license checks verified against central database
+- Real-time suspension capability
+- Usage analytics and monitoring
+
+### 3. Offline Grace Period
+- Up to 3 missed monthly checks allowed (≈90 days)
+- Local validation during offline periods
+- Automatic reconnection and validation
+
+### 4. Tamper Protection
+- Encrypted local storage
+- Signature verification
+- Anti-debugging measures
+
+## License Types and Features
+
+### Basic License
+- Core POS functionality
+- Single user account
+- Basic reporting
+
+### Professional License
+- Multi-user support
+- Advanced reporting
+- Inventory management
+- Customer management
 
 ### Enterprise License
+- Unlimited users
+- Advanced analytics
+- API access
+- Custom integrations
 
-```bash
-# 2-year enterprise license with all features
-node generate-license.cjs -e enterprise@corp.com -n "Enterprise Client" -d 730 -f "all"
+## Usage Examples
+
+### License Activation
+
+```typescript
+// Activate a license
+const result = await LicenseService.activateLicense('XXXXX-XXXXX-XXXXX-XXXXX-XXXXX');
+if (result.success) {
+  console.log('License activated successfully');
+} else {
+  console.error('Activation failed:', result.error);
+}
 ```
 
-## 🚀 Testing
+### Feature Gating
 
-### Test License Key
-
-For testing purposes, use this demo license key:
+```typescript
+// Check feature access
+if (LicenseService.hasFeature('advanced-reporting')) {
+  // Show advanced reporting features
+} else {
+  // Show upgrade prompt
+}
 ```
-E0C7C-B9B93-AA33A-5185E-F7F62
+
+### License Status Monitoring
+
+```typescript
+// Check license status
+const isValid = await LicenseService.isLicensed();
+const status = LicenseService.getLicenseStatus();
+
+console.log('License valid:', isValid);
+console.log('Days until expiry:', status.expiryDays);
 ```
 
-This key is valid for:
-- Customer: Demo Customer
-- Email: demo@aogtech.com
-- Features: all
-- Expires: 1 year from generation
+## Integration Guide
 
-## 🛠️ Troubleshooting
+### 1. Initialize License System
+
+```typescript
+// App.tsx
+import { LicenseService, LicenseScheduler } from './services';
+
+function App() {
+  useEffect(() => {
+    // Initialize license validation
+    LicenseScheduler.initialize();
+    
+    // Check initial license status
+    LicenseService.isLicensed().then(isValid => {
+      if (!isValid) {
+        // Show license activation screen
+      }
+    });
+  }, []);
+}
+```
+
+### 2. Protect Features
+
+```typescript
+// Component with feature protection
+function AdvancedFeature() {
+  if (!LicenseService.hasFeature('advanced-features')) {
+    return <UpgradePrompt />;
+  }
+  
+  return <AdvancedComponent />;
+}
+```
+
+### 3. License Management UI
+
+```typescript
+// License management component
+function LicenseManager() {
+  const [licenseKey, setLicenseKey] = useState('');
+  
+  const handleActivate = async () => {
+    const result = await LicenseService.activateLicense(licenseKey);
+    // Handle result
+  };
+  
+  return (
+    <div>
+      <input value={licenseKey} onChange={e => setLicenseKey(e.target.value)} />
+      <button onClick={handleActivate}>Activate License</button>
+    </div>
+  );
+}
+```
+
+## Troubleshooting
 
 ### Common Issues
 
-1. **"Invalid license key format"**
-   - Check that the key follows XXXXX-XXXXX-XXXXX-XXXXX-XXXXX format
-   - Ensure no extra spaces or characters
+1. **License Validation Failures**
+   - Check internet connectivity
+   - Verify license server accessibility
+   - Validate license key format
 
-2. **"License machine ID mismatch"**
-   - License is activated on a different machine
-   - Contact support for license transfer
+2. **Machine ID Inconsistencies**
+   - Clear browser cache and try again
+   - Check for browser security settings
+   - Verify fingerprinting components
 
-3. **"License has expired"**
-   - Generate a new license with extended expiry
-   - Contact customer about renewal
+3. **Offline Operation Issues**
+   - Check grace period status
+   - Verify local license storage
+   - Monitor scheduler activity
 
-4. **License won't activate**
-   - Check internet connection (if using online validation)
-   - Verify system date/time is correct
-   - Contact support with error details
+### Debug Information
 
-### Debug Mode
+```typescript
+// Get detailed license status
+const status = LicenseService.getLicenseStatus();
+const schedulerStatus = LicenseScheduler.getStatus();
 
-For development, you can check license status in browser console:
-```javascript
-// Check if licensed
-const isLicensed = await LicenseService.isLicensed();
-console.log('Licensed:', isLicensed);
-
-// Get license info
-const info = LicenseService.getLicenseInfo();
-console.log('License Info:', info);
-
-// Check days until expiry
-const days = LicenseService.getDaysUntilExpiry();
-console.log('Days until expiry:', days);
+console.log('License Status:', status);
+console.log('Scheduler Status:', schedulerStatus);
 ```
 
-## 📞 Support
+## Best Practices
 
-For licensing support:
-- Email: support@aogtech.com
-- Include: License key, error message, system information
+### For Developers
+1. Always check license status before accessing premium features
+2. Implement graceful degradation for unlicensed features
+3. Provide clear upgrade paths and messaging
+4. Test offline scenarios thoroughly
 
----
+### For Administrators
+1. Monitor license server health and performance
+2. Set up alerts for license violations
+3. Regularly review license usage analytics
+4. Maintain backup validation methods
 
-**© 2024 AOG Tech. All rights reserved.** 
+### For Deployment
+1. Configure proper environment variables
+2. Ensure license server accessibility
+3. Test activation process thoroughly
+4. Set up monitoring and logging
+
+## Security Considerations
+
+- **Never store license keys in plain text**
+- **Always validate licenses server-side**
+- **Monitor for suspicious activation patterns**
+- **Implement rate limiting on license endpoints**
+- **Regular security audits of license system**
+- **Secure transmission of license data**
+
+## Performance Optimization
+
+- **Cache license validation results**
+- **Minimize server round trips**
+- **Optimize fingerprinting calculations**
+- **Efficient scheduler implementation**
+- **Lazy load license-gated features**
+
+This license system provides robust protection while maintaining user experience and operational flexibility. 

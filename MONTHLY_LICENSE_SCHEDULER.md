@@ -2,89 +2,56 @@
 
 ## Overview
 
-The Monthly License Scheduler is a background service that automatically checks the license status once every month, but only when an internet connection is available. This system runs completely silently in the background without any user interface, designed for POS systems that run locally and may not always have internet access.
+The `LicenseScheduler` class provides automated monthly license validation for the POS system. It ensures that the software remains properly licensed and handles license expiration gracefully.
 
 ## Features
 
-- **Monthly Checks**: Automatically validates license status every 30 days
-- **Internet Awareness**: Only runs when internet connectivity is available
-- **Silent Operation**: Runs completely in the background without any user interface
-- **Efficient Scheduling**: Only checks when actually due, not on regular intervals
-- **Offline Resilience**: Gracefully handles offline periods and retries when connection is restored
-- **Missed Check Tracking**: Allows up to 3 missed monthly checks before issues
-- **Electron Integration**: Communicates with the main process for logging and notifications
+- **Automated Monthly Checks**: Validates license every 30 days
+- **Offline Tolerance**: Allows up to 3 missed checks for offline scenarios
+- **Network Awareness**: Detects internet connectivity and reschedules accordingly
+- **Persistent State**: Maintains scheduler state across application restarts
+- **Grace Period**: Provides reasonable offline operation time
 
 ## How It Works
 
-### 1. Initialization
-The scheduler initializes when the application starts:
-- Loads previous state from localStorage
-- Sets up network status listeners
-- Calculates and schedules the next check time
-
-### 2. Network Monitoring
-- Listens to browser `online` events
-- When connection is restored, checks if a monthly validation is due
-- Tests actual internet connectivity by attempting to reach the license server
-
-### 3. Monthly Validation Process
-When a monthly check is due and internet is available:
-1. Tests internet connectivity to the license server
-2. Calls `LicenseService.refreshLicense()` to validate the current license
-3. Updates check timestamps and resets missed check counter on success
-4. Schedules the next check for exactly 30 days later
-5. If validation fails, retries in 24 hours
-6. Notifies the Electron main process of results
-
-### 4. Grace Period Management
-- Allows up to 3 missed monthly checks (approximately 90 days offline)
-- Tracks missed checks silently
-- Resets missed check counter when a successful validation occurs
+1. **Initialization**: Sets up the scheduler when the application starts
+2. **Monthly Validation**: Automatically checks license validity every 30 days
+3. **Network Detection**: Monitors internet connectivity for license validation
+4. **State Management**: Persists check history and scheduling information
+5. **Grace Period**: Allows continued operation during temporary network issues
 
 ## Configuration
 
-### Timing Constants
 ```typescript
-const MONTHLY_INTERVAL = 30 * 24 * 60 * 60 * 1000; // 30 days
-const MAX_MISSED_CHECKS = 3; // Allow 3 missed checks
+// Scheduler constants
+private static readonly MONTHLY_INTERVAL = 30 * 24 * 60 * 60 * 1000; // 30 days
+private static readonly MAX_MISSED_CHECKS = 3; // Grace period
 ```
 
-### Network Testing
-The system tests connectivity by:
-1. First attempting to reach the license server health endpoint
-2. Falling back to a basic connectivity test (Google favicon)
-3. Both tests have timeouts (5s and 3s respectively)
+## API Reference
 
-## Silent Operation
+### Static Methods
 
-### No User Interface
-- The scheduler runs completely silently
-- No visible components or notifications to users
-- No settings or controls exposed to administrators
-- All operations logged to console for debugging
+#### `initialize(): void`
+Initializes the scheduler and sets up network listeners.
 
-### Efficient Scheduling
-- Uses `setTimeout` to schedule exact check times
-- Only executes when a check is actually due
-- No regular polling or hourly checks
-- Minimal system resource usage
+#### `getStatus(): SchedulerStatus`
+Returns current scheduler status including:
+- Last monthly check timestamp
+- Next scheduled check time
+- Number of missed checks
+- Whether a check is currently due
 
-## Electron Integration
+#### `reset(): void`
+Resets all scheduler state (for testing/debugging only).
 
-### IPC Communication
-The scheduler communicates with the Electron main process via IPC:
-- `monthly-license-check-success`: Successful validation
-- `monthly-license-check-failed`: Failed validation
+#### `cleanup(): void`
+Cleans up timers and event listeners.
 
-### Main Process Handling
-The Electron main process can:
-- Log license check events
-- Perform additional administrative actions
-- Log to files or external systems
+## State Management
 
-## Storage and Persistence
+The scheduler maintains persistent state in localStorage:
 
-The scheduler state is stored in localStorage:
 ```typescript
 interface SchedulerState {
   lastMonthlyCheck: string | null;
@@ -93,96 +60,94 @@ interface SchedulerState {
 }
 ```
 
-## API Methods
+## Network Handling
 
-### Public Methods
-- `LicenseScheduler.initialize()`: Start the scheduler
-- `LicenseScheduler.getStatus()`: Get current status (debugging only)
-- `LicenseScheduler.reset()`: Reset all state
-- `LicenseScheduler.cleanup()`: Stop the scheduler
+The scheduler intelligently handles network connectivity:
 
-### Status Response (Debug Only)
+1. **Online Detection**: Uses `navigator.onLine` and connectivity tests
+2. **Graceful Degradation**: Continues operation during temporary outages
+3. **Automatic Recovery**: Resumes checking when connectivity returns
+
+## License Validation Process
+
+1. **Connectivity Test**: Verifies internet connection
+2. **License Refresh**: Calls `LicenseService.refreshLicense()`
+3. **Result Handling**: Updates state and schedules next check
+4. **Error Management**: Logs failures and maintains missed check count
+
+## Integration
+
+### Setup in Application
+
 ```typescript
-{
-  lastMonthlyCheck: string | null;
-  nextScheduledCheck: string | null;
-  missedChecks: number;
-  isDue: boolean;
-  maxMissedChecksReached: boolean;
-}
+// Initialize scheduler during app startup
+LicenseScheduler.initialize();
+
+// Check current status
+const status = LicenseScheduler.getStatus();
 ```
 
-## Error Handling
+### Monitoring and Debugging
 
-### Network Failures
-- Gracefully handles network timeouts
-- Distinguishes between network issues and license validation failures
-- Retries in 24 hours if validation fails due to connectivity
-
-### License Server Issues
-- Falls back to basic connectivity testing if license server is unreachable
-- Logs specific error messages for debugging
-- Maintains offline operation capability
-
-### Data Persistence
-- Handles localStorage failures gracefully
-- Continues operation even if state cannot be saved
-- Maintains check schedule across app restarts
+```typescript
+// Check if scheduler is working properly
+const status = LicenseScheduler.getStatus();
+console.log('Scheduler Status:', {
+  lastCheck: status.lastMonthlyCheck,
+  nextCheck: status.nextScheduledCheck,
+  missedChecks: status.missedChecks,
+  isDue: status.isDue
+});
+```
 
 ## Best Practices
 
-### For Deployment
-1. Ensure license server has a reliable `/api/health` endpoint
-2. Configure appropriate server URLs in environment variables
-3. Test the system in various network conditions
-4. Monitor console logs for license check events
-
-### For Administration
-1. Monitor Electron main process logs for license events
-2. Check console logs for scheduler activity
-3. Verify license server accessibility for troubleshooting
-
-### For Development
-1. Test offline scenarios thoroughly
-2. Verify IPC communication with Electron main process
-3. Test network state changes during operation
-4. Validate localStorage persistence across app restarts
-5. Use browser dev tools to monitor console output
+1. **Initialize Early**: Call `initialize()` during application startup
+2. **Monitor Status**: Regularly check scheduler status in admin interfaces
+3. **Handle Errors**: Implement proper error handling for license failures
+4. **Test Scenarios**: Verify behavior in offline and online scenarios
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Scheduler not initializing**
-   - Check that it's called after app hydration
-   - Verify localStorage access permissions
-   - Check console for initialization logs
+1. **Scheduler Not Running**
+   - Verify `initialize()` was called
+   - Check browser console for errors
 
-2. **Network detection issues**
-   - Test license server health endpoint manually
-   - Check CORS configuration for health endpoint
-   - Verify internet connectivity testing fallback
-
-3. **Missed checks accumulating**
+2. **License Checks Failing**
+   - Verify network connectivity
    - Check license server availability
-   - Verify network configuration
-   - Monitor console logs for check attempts
+   - Validate license configuration
 
-4. **IPC communication failures**
-   - Verify Electron preload script configuration
-   - Check allowed IPC channels list
-   - Test with Electron main process event handlers
+3. **State Not Persisting**
+   - Check localStorage availability
+   - Verify storage permissions
 
-### Debug Information
-The scheduler logs all activities to the console:
-- Initialization messages
-- Check scheduling information
-- Validation attempts and results
-- Error conditions and retry scheduling
+### Debugging Steps
 
-### Monitoring
-Since the scheduler runs silently, monitor it through:
-- Browser console logs
-- Electron main process logs
-- License server access logs
-- localStorage state inspection 
+1. Check scheduler status: `LicenseScheduler.getStatus()`
+2. Verify network connectivity manually
+3. Check browser console for scheduler logs
+4. Validate license service configuration
+
+## Security Considerations
+
+- **No Local Storage of Keys**: Only validation state is stored locally
+- **Server Validation**: All license checks go through secure server validation
+- **Tamper Protection**: State manipulation doesn't bypass license validation
+- **Grace Period Limits**: Maximum offline operation time is enforced
+
+## Performance Impact
+
+- **Minimal CPU Usage**: Only runs monthly checks
+- **Low Memory Footprint**: Maintains minimal state
+- **Network Efficient**: Uses connectivity tests to avoid unnecessary requests
+- **Storage Efficient**: Stores only essential scheduling information
+
+## Future Enhancements
+
+- **Configurable Intervals**: Allow custom check frequencies
+- **Multiple License Types**: Support different validation schedules
+- **Enhanced Monitoring**: Detailed analytics and reporting
+- **Smart Scheduling**: Optimize check timing based on usage patterns 

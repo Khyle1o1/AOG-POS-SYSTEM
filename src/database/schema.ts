@@ -4,7 +4,7 @@ import {
   Product, 
   Category, 
   Transaction, 
-  ActivityLog 
+  ActivityLog
 } from '../types';
 
 export interface DatabaseUser extends User {
@@ -38,6 +38,14 @@ export interface DatabaseSettings {
   backupFrequency: 'daily' | 'weekly' | 'monthly';
   lowStockAlert: boolean;
   lowStockThreshold: number;
+  // Printer settings
+  printerSelectedId?: string;
+  printerSelectedName?: string;
+  printerAutoPrintEnabled: boolean;
+  printerPaperWidth: 58 | 80;
+  printerEncoding: 'cp437' | 'utf8';
+  printerCutType: 'full' | 'partial' | 'none';
+  printerCashdrawerEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

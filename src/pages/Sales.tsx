@@ -8,13 +8,14 @@ import {
   Check,
   Receipt,
   CheckCircle,
-  XCircle
+  XCircle,
+  Printer
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Product, Transaction, TransactionItem } from '../types';
 import { format } from 'date-fns';
 import { formatCurrency } from '../utils/currency';
-import { useElectronFileOps } from '../hooks/useElectron';
+import { ReceiptService } from '../services/ReceiptService';
 
 const Sales: React.FC = () => {
   // Debug: Log component initialization
@@ -32,16 +33,6 @@ const Sales: React.FC = () => {
     auth,
     settings
   } = useStore();
-
-  const { showNotification } = useElectronFileOps();
-
-  // Debug: Log store data
-  console.log('Sales - Store data:', {
-    productsCount: products?.length || 0,
-    categoriesCount: categories?.length || 0,
-    cartItems: cart?.items?.length || 0,
-    authUser: auth?.user?.username || 'none'
-  });
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState('');
@@ -160,15 +151,14 @@ const Sales: React.FC = () => {
   const showToastNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     
-    // Show system notification if available
+    // Show browser notification if available
     if (type === 'success') {
       try {
-        showNotification('Product Added', message);
-      } catch (error) {
-        // Fallback to browser notification
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Product Added', { body: message });
         }
+      } catch (error) {
+        console.log('Notification not supported');
       }
     }
     
@@ -273,7 +263,7 @@ const Sales: React.FC = () => {
     }
   };
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
     if (cart.items.length === 0) return;
     
     // Calculate change for cash payment
@@ -309,12 +299,52 @@ const Sales: React.FC = () => {
       updatedAt: new Date(),
     };
 
-    addTransaction(transaction);
-    setLastTransaction(transaction);
-    clearCart();
-    setShowPaymentModal(false);
-    setShowReceiptModal(true);
-    setPaymentAmount(0);
+    try {
+      // Add transaction to database
+      await addTransaction(transaction);
+      setLastTransaction(transaction);
+      
+      // Handle receipt printing based on settings and printer connection
+      const { BluetoothPrinterService } = await import('../services/BluetoothPrinterService');
+      const printerService = BluetoothPrinterService.getInstance();
+      
+      if (printerService.getStatus().connected) {
+        if (settings.printerSettings?.autoPrintEnabled) {
+          // Auto-print is enabled - print immediately
+          try {
+            showToastNotification('success', 'Printing receipt...');
+            
+            await ReceiptService.autoPrintReceipt(
+              transaction,
+              settings.storeName,
+              undefined, // store address - could be added to settings
+              undefined, // store phone - could be added to settings
+              auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Unknown Cashier'
+            );
+            showToastNotification('success', 'Receipt printed successfully!');
+          } catch (printError) {
+            console.error('Print failed:', printError);
+            showToastNotification('error', 'Print failed - please check printer connection');
+          }
+        } else {
+          // Auto-print is disabled but printer is connected - offer to print
+          showToastNotification('success', 'Sale completed! Printer ready - use "Print" button in receipt modal to print.');
+        }
+      } else {
+        // No printer connected
+        showToastNotification('error', 'No printer connected - receipt available in modal');
+      }
+      
+      clearCart();
+      setShowPaymentModal(false);
+      setShowReceiptModal(true);
+      setPaymentAmount(0);
+      
+      showToastNotification('success', 'Sale completed successfully!');
+    } catch (error) {
+      console.error('Failed to process payment:', error);
+      showToastNotification('error', 'Failed to process payment. Please try again.');
+    }
   };
 
   const openPaymentModal = () => {
@@ -325,6 +355,35 @@ const Sales: React.FC = () => {
   const printReceipt = () => {
     // In a real application, this would trigger the receipt printer
     window.print();
+  };
+
+  const printToThermalPrinter = async () => {
+    if (!lastTransaction) return;
+    
+    try {
+      const { BluetoothPrinterService } = await import('../services/BluetoothPrinterService');
+      const printerService = BluetoothPrinterService.getInstance();
+      
+      if (!printerService.getStatus().connected) {
+        showToastNotification('error', 'No thermal printer connected');
+        return;
+      }
+      
+      showToastNotification('success', 'Printing to thermal printer...');
+      
+      await ReceiptService.autoPrintReceipt(
+        lastTransaction,
+        settings.storeName,
+        undefined, // store address - could be added to settings
+        undefined, // store phone - could be added to settings
+        auth.user ? `${auth.user.firstName} ${auth.user.lastName}` : 'Unknown Cashier'
+      );
+      
+      showToastNotification('success', 'Receipt printed to thermal printer!');
+    } catch (error) {
+      console.error('Thermal print failed:', error);
+      showToastNotification('error', 'Failed to print to thermal printer');
+    }
   };
 
   return (
@@ -689,6 +748,13 @@ const Sales: React.FC = () => {
               >
                 <Receipt className="h-4 w-4 mr-2" />
                 Print
+              </button>
+              <button
+                onClick={printToThermalPrinter}
+                className="flex-1 btn btn-outline"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Thermal Print
               </button>
               <button
                 onClick={() => setShowReceiptModal(false)}
